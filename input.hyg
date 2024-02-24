@@ -1,0 +1,4 @@
+match 12 with {
+    Some{x} -> println("w")
+    Npne{x} -> println("w")
+}
