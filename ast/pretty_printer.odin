@@ -114,7 +114,7 @@ expr_to_string :: proc(expr: ^Expr, indent: string) -> (s: string) {
         case If_Else:
             s = fmt.aprintf("if %s\n  then %s\n  else %s", expr_to_string(e.e1, indent), expr_to_string(e.e2, indent), expr_to_string(e.e3, indent))
         case Assignment:
-            s = fmt.aprintf("%s <- %s", e.x, expr_to_string(e.e1, ""))
+            s = fmt.aprintf("%s <- %s", expr_to_string(e.e1, ""), expr_to_string(e.e2, ""))
         case Unary_Fun:
             s = fmt.aprintf("%s", unary_to_string(e))
         case Binary_Fun:

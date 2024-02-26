@@ -90,9 +90,9 @@ if_else_make :: proc(e1: ^Expr, e2: ^Expr, e3: ^Expr) -> (expr: ^Expr) {
     return
 }
 
-assignment_make :: proc(x: string, e1: ^Expr) -> (expr: ^Expr) {
+assignment_make :: proc(e1: ^Expr, e2: ^Expr) -> (expr: ^Expr) {
     expr  = new(Expr)
-    expr^ = Assignment { x, e1 }
+    expr^ = Assignment { e1, e2 }
     return
 }
 

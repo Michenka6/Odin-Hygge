@@ -116,8 +116,8 @@ If_Else :: struct {
 }
 
 Assignment :: struct {
-    x:   string,
     e1: ^Expr,
+    e2: ^Expr,
 }
 
 Unary_Op :: enum {

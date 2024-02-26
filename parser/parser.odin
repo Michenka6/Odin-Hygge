@@ -34,7 +34,12 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
             |   VARIABLE
             |   "(" E ")"
             |   "{" E "}"
-        E2  :=
+        E2  :=        
+            |   E1 "<" "-" E
+            |   E1 "-" "=" E
+            |   E1 "*" "=" E
+            |   E1 "/" "=" E
+            |   E1 "%" "=" E
             |   E1 "%" E2
             |   E1 "/" E2
             |   E1 "*" E2
@@ -69,13 +74,7 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
             |   "println"   "(" E8 ")"
             |   "assert"    "(" E8 ")"
             |   E8
-        E10 :=
-            |   VARIABLE "<" "-" E8
-            |   VARIABLE "-" "=" E8
-            |   VARIABLE "*" "=" E8
-            |   VARIABLE "/" "=" E8
-            |   VARIABLE "%" "=" E8
-            |   E9
+
         E11 :=
             |   "if" E8 "then" E "else" E-1
             |   E10
@@ -116,7 +115,7 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
         E   :=  E23 | E23 ";" E
     */
 
-PARSER_TRACING :: false
+PARSER_TRACING :: true
 
 parse_E :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     when PARSER_TRACING { fmt.println("PARSING RULE E")}
@@ -381,6 +380,7 @@ parse_fields :: proc(p: ^Parser, fields: ^map[string]^AST.Expr) -> (ok: bool) {
     p.tk_advanced += 1
 
     e := parse_E_minus(p) or_return
+    fmt.println(AST.expr_to_string(e, ""))
 
     fields[field] = e
 
@@ -608,92 +608,9 @@ parse_E11 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         return expr, true
     }
 
-    return parse_E10(p)
-}
-
-parse_E10 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
-    when PARSER_TRACING { fmt.println("PARSING RULE E10")}
-    x, x_parsed := parse_ident(p)
-    if x_parsed {
-        tk, got_tk := get_tk(p)
-        if !got_tk { expr = AST.variable_make(x); return expr, true }
-
-        if tk.kind == .Less {
-            p.tk_advanced += 1
-            tk, got_tk := get_tk(p)
-            if !got_tk || tk.kind != .Minus { p.tk_advanced -= 2; return parse_E9(p) }
-            p.tk_advanced += 1
-
-            e1 := parse_E8(p) or_return
-
-            expr = AST.assignment_make(x, e1)
-            return expr, true
-        }
-
-        if tk.kind == .Plus {
-            p.tk_advanced += 1
-            tk, got_tk := get_tk(p)
-            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return parse_E9(p) }
-            p.tk_advanced += 1
-
-            e1_e2 := parse_E8(p) or_return
-
-            e1_e1 := AST.variable_make(x)
-
-            e1 := AST.binary_make(.Plus, e1_e1, e1_e2)
-
-            expr = AST.assignment_make(x, e1)
-            return expr, true
-        }
-
-        if tk.kind == .Minus {
-            p.tk_advanced += 1
-            tk, got_tk := get_tk(p)
-            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return parse_E9(p) }
-            p.tk_advanced += 1
-
-            e1_e2 := parse_E8(p) or_return
-
-            e1_e1 := AST.variable_make(x)
-
-            e1 := AST.binary_make(.Minus, e1_e1, e1_e2)
-            expr = AST.assignment_make(x, e1)
-            return expr, true
-        }
-
-        if tk.kind == .Times {
-            p.tk_advanced += 1
-            tk, got_tk := get_tk(p)
-            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return parse_E9(p) }
-            p.tk_advanced += 1
-
-            e1_e2 := parse_E8(p) or_return
-
-            e1_e1 := AST.variable_make(x)
-
-            e1 := AST.binary_make(.Times, e1_e1, e1_e2)
-            expr = AST.assignment_make(x, e1)
-            return expr, true
-        }
-
-        if tk.kind == .Div {
-            p.tk_advanced += 1
-            tk, got_tk := get_tk(p)
-            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return parse_E9(p) }
-            p.tk_advanced += 1
-
-            e1_e2 := parse_E8(p) or_return
-
-            e1_e1 := AST.variable_make(x)
-
-            e1 := AST.binary_make(.Divide, e1_e1, e1_e2)
-            expr = AST.assignment_make(x, e1)
-            return expr, true
-        }
-        p.tk_advanced -= 1
-    }
     return parse_E9(p)
 }
+
 
 parse_E9 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     when PARSER_TRACING { fmt.println("PARSING RULE E9")}
@@ -976,27 +893,87 @@ parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     tk, got_tk := get_tk(p)
     if !got_tk { return e1, true }
 
-    if tk.kind == .Mod {
+    if tk.kind == .Less {
         p.tk_advanced += 1
-        e2, e2_parsed := parse_E2(p)
-        if !e2_parsed { p.tk_advanced -= 1; return }
-        expr = AST.binary_make(.Modulus, e1, e2)
+        tk, got_tk := get_tk(p)
+        if !got_tk || tk.kind != .Minus { p.tk_advanced -= 2; return e1, true }
+        p.tk_advanced += 1
+
+        e2 := parse_E(p) or_return
+
+        expr = AST.assignment_make(e1, e2)
+        return expr, true
+    }
+
+    if tk.kind == .Plus {
+        p.tk_advanced += 1
+        tk, got_tk := get_tk(p)
+        if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return e1, true }
+        p.tk_advanced += 1
+
+        e1_e2 := parse_E(p) or_return
+
+        e2 := AST.binary_make(.Plus, e1, e1_e2)
+
+        expr = AST.assignment_make(e1, e2)
+        return expr, true
+    }
+
+    if tk.kind == .Minus {
+        p.tk_advanced += 1
+        tk, got_tk := get_tk(p)
+        if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return e1, true }
+        p.tk_advanced += 1
+
+        e1_e2 := parse_E(p) or_return
+
+        e2 := AST.binary_make(.Minus, e1, e1_e2)
+        expr = AST.assignment_make(e1, e2)
         return expr, true
     }
 
     if tk.kind == .Times {
         p.tk_advanced += 1
-        e2, e2_parsed := parse_E2(p)
-        if !e2_parsed { p.tk_advanced -= 1; return }
-        expr = AST.binary_make(.Times, e1, e2)
+        tk, got_tk := get_tk(p)
+        if !got_tk || tk.kind != .Eq { 
+            e2, e2_parsed := parse_E2(p)
+            if !e2_parsed { p.tk_advanced -= 1; return }
+            expr = AST.binary_make(.Times, e1, e2)
+            return expr, true
+        }
+        p.tk_advanced += 1
+
+        e1_e2 := parse_E(p) or_return
+
+        e2 := AST.binary_make(.Times, e1, e1_e2)
+        expr = AST.assignment_make(e1, e2)
         return expr, true
     }
 
     if tk.kind == .Div {
         p.tk_advanced += 1
+        tk, got_tk := get_tk(p)
+        if !got_tk || tk.kind != .Eq { 
+            e2, e2_parsed := parse_E2(p)
+            if !e2_parsed { p.tk_advanced -= 1; return }
+            expr = AST.binary_make(.Divide, e1, e2)
+            return expr, true
+        }
+        p.tk_advanced += 1
+
+        e1_e2 := parse_E(p) or_return
+
+        e2 := AST.binary_make(.Divide, e1, e1_e2)
+        expr = AST.assignment_make(e1, e2)
+        return expr, true
+    }
+
+
+    if tk.kind == .Mod {
+        p.tk_advanced += 1
         e2, e2_parsed := parse_E2(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
-        expr = AST.binary_make(.Divide, e1, e2)
+        expr = AST.binary_make(.Modulus, e1, e2)
         return expr, true
     }
 
