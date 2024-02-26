@@ -1,0 +1,3 @@
+if 13 < 144 or false
+    then var *= 13
+    else 3113

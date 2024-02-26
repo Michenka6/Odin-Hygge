@@ -1,0 +1,4 @@
+for(let mutable x : int = 0; 2, x < 10, x += 1)
+{
+    print("Hello, World!")
+}

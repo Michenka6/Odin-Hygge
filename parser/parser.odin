@@ -18,8 +18,8 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
 
 /*
         FIELDS  := 
-                |   FIELD "=" E8
-                |   FIELD "=" E8 ";" FIELDS
+                |   FIELD "=" E-1
+                |   FIELD "=" E-1 ";" FIELDS
         MATCH_CASES :=
                     |   LABEL "{" VARIABLE "}" "-" ">" E-1
                     |   LABEL "{" VARIABLE "}" "-" ">" E-1 ";" MATCH_CASES
@@ -356,8 +356,7 @@ parse_E18 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         if !got_tk || tk.kind != .Left_Cur { p.tk_advanced -= 1; return parse_E17(p)}
         p.tk_advanced += 1
 
-        e1, e1_parsed := parse_E8(p)
-        // fmt.println(AST.expr_to_string(e1, ""))
+        e1, e1_parsed := parse_E(p)
         if !e1_parsed { p.tk_advanced -= 2; return parse_E17(p) }
 
         tk = get_tk(p) or_return
@@ -381,7 +380,7 @@ parse_fields :: proc(p: ^Parser, fields: ^map[string]^AST.Expr) -> (ok: bool) {
     if tk.kind != .Eq { p.tk_advanced -= 1; return }
     p.tk_advanced += 1
 
-    e := parse_E8(p) or_return
+    e := parse_E_minus(p) or_return
 
     fields[field] = e
 

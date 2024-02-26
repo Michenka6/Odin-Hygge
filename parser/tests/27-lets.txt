@@ -1,0 +1,5 @@
+let x : int = 123;
+
+let mutable y : float = x * 11 % 1;
+
+println(y - x)
