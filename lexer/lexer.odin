@@ -318,6 +318,7 @@ parse_float :: proc(l: ^Lexer) -> (tk: Token, ok: bool) {
         tk.kind = .Float
         tk.payload = float_from_two_ints(v1, v2)
         tk.pos = pos
+        l.cursor += 1
     }
     return tk, true
 }

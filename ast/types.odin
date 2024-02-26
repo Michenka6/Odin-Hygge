@@ -62,7 +62,7 @@ Fun_Decl :: struct {
 }
 
 Fun_App :: struct {
-    fun_name: string,
+    fun:     ^Expr,
     params:   [dynamic]^Expr,
 }
 

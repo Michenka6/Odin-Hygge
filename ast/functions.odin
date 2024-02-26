@@ -42,9 +42,9 @@ fun_decl_make :: proc(params: map[string]^Pretype, e1: ^Expr) -> (expr: ^Expr) {
     return
 }
 
-fun_app_make :: proc(fun_name: string, params: [dynamic]^Expr) -> (expr: ^Expr) {
+fun_app_make :: proc(fun: ^Expr, params: [dynamic]^Expr) -> (expr: ^Expr) {
     expr  = new(Expr)
-    expr^ = Fun_App { fun_name, params }
+    expr^ = Fun_App { fun, params }
     return
 }
 

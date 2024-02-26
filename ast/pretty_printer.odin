@@ -3,68 +3,46 @@ package ast
 import "core:fmt"
 
 value_to_string :: proc(v: Value_Payload) -> (s: string) {
-    if v == nil { return "(UNIT)" }
+    if v == nil { return "()" }
     switch payload in v {
-        case int:    s = fmt.aprintf("(%i :: int)", payload)
-        case f64:    s = fmt.aprintf("(%f :: float)", payload)
-        case bool:   s = fmt.aprintf("(%v :: bool)", payload)
-        case string: s = fmt.aprintf("(%s :: string)", payload)
+        case int:    s = fmt.aprintf("%i", payload)
+        case f64:    s = fmt.aprintf("%f", payload)
+        case bool:   s = fmt.aprintf("%v", payload)
+        case string: s = fmt.aprintf("\"%s\"", payload)
     }
     return 
 }
 
-unary_to_string :: proc(expr: Unary_Fun, indent: string) -> (s: string) {
+unary_to_string :: proc(expr: Unary_Fun) -> (s: string) {
     switch expr.op {
-        case .U_Minus:
-            s = fmt.aprintf("-\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)))
-        case .Not:
-            s = fmt.aprintf("not\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)))
-        case .Sqrt:
-            s = fmt.aprintf("sqrt\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)))
-        case .Print:
-            s = fmt.aprintf("print\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)))
-        case .Println:
-            s = fmt.aprintf("println\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)))
-        case .Assert:
-            s = fmt.aprintf("assert\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)))
-        case .Read_Float:
-            s = fmt.aprintf("readFloat")
-        case .Read_Int:
-            s = fmt.aprintf("readInt")
+        case .U_Minus:      s = fmt.aprintf("(-%s)",       expr_to_string(expr.e1, ""))
+        case .Not:          s = fmt.aprintf("(not %s)",    expr_to_string(expr.e1, ""))
+        case .Sqrt:         s = fmt.aprintf("sqrt(%s)",    expr_to_string(expr.e1, ""))
+        case .Print:        s = fmt.aprintf("print(%s)",   expr_to_string(expr.e1, ""))
+        case .Println:      s = fmt.aprintf("println(%s)", expr_to_string(expr.e1, ""))
+        case .Assert:       s = fmt.aprintf("assert(%s)",  expr_to_string(expr.e1, ""))
+        case .Read_Float:   s = fmt.aprintf("readFloat()")
+        case .Read_Int:     s = fmt.aprintf("readInt()")
     }
     return
 }
 
-binary_to_string :: proc(expr: Binary_Fun, indent: string) -> (s: string) {
+binary_to_string :: proc(expr: Binary_Fun) -> (s: string) {
     switch expr.op {
-        case .Modulus:
-            s = fmt.aprintf("%%\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Divide:
-            s = fmt.aprintf("/\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Times:
-            s = fmt.aprintf("*\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Minus:
-            s = fmt.aprintf("-\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Plus:
-            s = fmt.aprintf("+\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Max:
-            s = fmt.aprintf("max\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Min:
-            s = fmt.aprintf("min\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Less:
-            s = fmt.aprintf("<\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Greater:
-            s = fmt.aprintf(">\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Equals:
-            s = fmt.aprintf("=\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Less_Equals:
-            s = fmt.aprintf("<=\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Greater_Equals:
-            s = fmt.aprintf(">=\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .Or:
-            s = fmt.aprintf("or\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
-        case .And:
-            s = fmt.aprintf("and\n%s\n%s", expr_to_string(expr.e1, fmt.aprintf("  %s", indent)), expr_to_string(expr.e2, fmt.aprintf("  %s", indent)))
+        case .Modulus:          s = fmt.aprintf("%s %% %s",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Divide:           s = fmt.aprintf("(%s / %s)",   expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Times:            s = fmt.aprintf("(%s * %s)",   expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Minus:            s = fmt.aprintf("%s - %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Plus:             s = fmt.aprintf("%s + %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Max:              s = fmt.aprintf("max(%s, %s)", expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Min:              s = fmt.aprintf("min(%s, %s)", expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Less:             s = fmt.aprintf("%s < %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Greater:          s = fmt.aprintf("%s > %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Equals:           s = fmt.aprintf("%s = %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Less_Equals:      s = fmt.aprintf("%s <= %s",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Greater_Equals:   s = fmt.aprintf("%s >= %s",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Or:               s = fmt.aprintf("(%s or %s)",  expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .And:              s = fmt.aprintf("%s and %s",   expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
     }
     return
 }
@@ -74,15 +52,15 @@ fields_to_string :: proc(fields: map[string]^Expr) -> (s: string) {
         s = fmt.aprintf("%s; %v = %v", s, k, expr_to_string(v, ""))
     }
     if len(fields) == 0 { return "" }
-    return
+    return s[2:]
 }
 
 match_patterns_to_string :: proc(patterns: map[Match_Pattern]^Expr) -> (s: string) {
     for k,v in patterns {
-        s = fmt.aprintf("%s;\n%s {{ %s }} = %v", s, k.label, k.var, expr_to_string(v, ""))
+        s = fmt.aprintf("%s; %s {{ %s }} = %v", s, k.label, k.var, expr_to_string(v, ""))
     }
     if len(patterns) == 0 { return "" }
-    return
+    return s[2:]
 }
 
 fun_app_params_to_string :: proc(params: [dynamic]^Expr) -> (s: string) {
@@ -104,39 +82,43 @@ fun_decl_params_to_string :: proc(params: map[string]^Pretype) -> (s: string) {
 expr_to_string :: proc(expr: ^Expr, indent: string) -> (s: string) {
     if expr == nil { return }
 
+    s0 := indent
+
     switch e in expr {
         case Sequence:
+            s0 = ""
             s = fmt.aprintf("%s;\n%s", expr_to_string(e.e1, indent), expr_to_string(e.e2, indent))
         case Type_Ascription:
-            s = fmt.aprintf("%s\n: %s", expr_to_string(e.e1, indent), pretype_to_string(e.pt))
+            s = fmt.aprintf("%s : %s", expr_to_string(e.e1, ""), pretype_to_string(e.pt))
         case Fun_Decl:
-            s = fmt.aprintf("fun (%s) ->\n%s", fun_decl_params_to_string(e.params), expr_to_string(e.e1, indent))
+            s = fmt.aprintf("fun (%s) -> %s", fun_decl_params_to_string(e.params), expr_to_string(e.e1, ""))
         case Fun_App:
-            s = fmt.aprintf("%s(%s)", e.fun_name, fun_app_params_to_string(e.params))
+            s = fmt.aprintf("%s(%s)", expr_to_string(e.fun, ""), fun_app_params_to_string(e.params))
         case Match_Case:
-            s = fmt.aprintf("match %s with {{ %s }}", expr_to_string(e.e1, indent), match_patterns_to_string(e.patterns))
+            s = fmt.aprintf("match %s with {{ %s }}", expr_to_string(e.e1, ""), match_patterns_to_string(e.patterns))
         case Union_Constructor:
             s = fmt.aprintf("%s {{ %s }}", e.label, expr_to_string(e.e1, ""))
         case Struct:
-            s = fmt.aprintf("struct %s", fields_to_string(e.fields))
+            s0 = ""
+            s = fmt.aprintf("struct {{ %s }}", fields_to_string(e.fields))
         case While:
-            s = fmt.aprintf("while %s do\n%s", expr_to_string(e.e1, indent), expr_to_string(e.e2, fmt.aprintf("  %s", indent)))
+            s = fmt.aprintf("while %s do %s", expr_to_string(e.e1, ""), expr_to_string(e.e2, ""))
         case Type_Decl:
             s = fmt.aprintf("type %s = %s;\n%s", e.x, pretype_to_string(e.pt), expr_to_string(e.e1, indent))
         case Let:
             if e.is_mut {
-                s = fmt.aprintf("let mutable %s : %s =\n%s;\n%s", e.x, pretype_to_string(e.pt), expr_to_string(e.e1, fmt.aprintf("  %s", indent)), expr_to_string(e.e2, fmt.aprintf("  %s", indent)))
+                s = fmt.aprintf("let mutable %s : %s = %s;\n%s", e.x, pretype_to_string(e.pt), expr_to_string(e.e1, ""), expr_to_string(e.e2, indent))
             } else {
-                s = fmt.aprintf("let %s : %s =\n%s;\n%s", e.x, pretype_to_string(e.pt), expr_to_string(e.e1, fmt.aprintf("  %s", indent)), expr_to_string(e.e2, fmt.aprintf("  %s", indent)))
+                s = fmt.aprintf("let %s : %s = %s;\n%s", e.x, pretype_to_string(e.pt), expr_to_string(e.e1, ""), expr_to_string(e.e2, indent))
             }
         case If_Else:
             s = fmt.aprintf("if %s\n  then %s\n  else %s", expr_to_string(e.e1, indent), expr_to_string(e.e2, indent), expr_to_string(e.e3, indent))
         case Assignment:
-            s = fmt.aprintf("<-\n  %s\n%s", e.x, expr_to_string(e.e1, fmt.aprintf("  %s", indent)))
+            s = fmt.aprintf("%s <- %s", e.x, expr_to_string(e.e1, ""))
         case Unary_Fun:
-            s = fmt.aprintf("%s", unary_to_string(e, indent))
+            s = fmt.aprintf("%s", unary_to_string(e))
         case Binary_Fun:
-            s = fmt.aprintf("%s", binary_to_string(e, indent))
+            s = fmt.aprintf("%s", binary_to_string(e))
         case Variable:
             s = fmt.aprintf("%s", e.x)
         case Field_Access:
@@ -144,11 +126,11 @@ expr_to_string :: proc(expr: ^Expr, indent: string) -> (s: string) {
         case Value:
             s = fmt.aprintf("%s", value_to_string(e.v))
         case Parens:
-            s = fmt.aprintf("(\n%s\n%s)", expr_to_string(e.e1, indent), indent)
+            s = fmt.aprintf("(%s)", expr_to_string(e.e1, ""))
         case Scope:
-            s = fmt.aprintf("{{\n%s\n%s}}", expr_to_string(e.e1, indent), indent)
+            s = fmt.aprintf("{{ %s }}", expr_to_string(e.e1, ""))
     }
-    return
+    return fmt.aprintf("%s%s", s0, s)
 }
 
 types_to_string :: proc(params: [dynamic]^Pretype) -> (s: string) {

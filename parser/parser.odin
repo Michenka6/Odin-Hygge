@@ -30,6 +30,7 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
             |   "-" E1
             |   VALUE
             |   VARIABLE "." FIELD
+            |   VARIABLE "(" FUN_PARAMS ")"
             |   VARIABLE
             |   "(" E ")"
             |   "{" E "}"
@@ -104,18 +105,15 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
             |   "match" E "with" "{" MATCH_CASES "}"
             |   E18
         E20 :=
-            |   VARIABLE "(" FUN_PARAMS ")"
+            |   "fun" VARIABLE "(" ARGUMENTS ")" ":" PRETYPE "=" E-1 ";" E
             |   E19
         E21 :=
-            |   "fun" VARIABLE "(" ARGUMENTS ")" ":" PRETYPE "=" E-1 ";" E
+            |   "fun" "(" ARGUMENTS ")" "-" ">" E
             |   E20
         E22 :=
-            |   "fun" "(" ARGUMENTS ")" "-" ">" E
+            |   E21 ":" PRETYPE
             |   E21
-        E23 :=
-            |   E22 ":" PRETYPE
-            |   E22
-        E   :=  E22 | E22 ";" E
+        E   :=  E23 | E23 ";" E
     */
 
 PARSER_TRACING :: false
@@ -135,12 +133,12 @@ parse_E :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
 }
 
 parse_E_minus :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
-    return parse_E23(p)
+    return parse_E22(p)
 }
 
-parse_E23 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
-    when PARSER_TRACING { fmt.println("PARSING RULE E23")}
-    e1 := parse_E22(p) or_return
+parse_E22 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E22")}
+    e1 := parse_E21(p) or_return
 
     tk, got_tk := get_tk(p)
     if got_tk && tk.kind == .Colon {
@@ -175,15 +173,15 @@ parse_fun_decl_params :: proc(p: ^Parser, params: ^map[string]^AST.Pretype) -> (
     return true 
 }
 
-parse_E22 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
-    when PARSER_TRACING { fmt.println("PARSING RULE E22")}
+parse_E21 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E21")}
     tk := get_tk(p) or_return
 
     if tk.kind == .Fun {
         p.tk_advanced += 1
 
         tk = get_tk(p) or_return
-        if tk.kind != .Left_Par { p.tk_advanced -= 1; return parse_E21(p)}
+        if tk.kind != .Left_Par { p.tk_advanced -= 1; return parse_E20(p)}
         p.tk_advanced += 1
 
         params := make(map[string]^AST.Pretype)
@@ -207,11 +205,11 @@ parse_E22 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         return expr, true
     }
 
-    return parse_E21(p)
+    return parse_E20(p)
 }
 
-parse_E21 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
-    when PARSER_TRACING { fmt.println("PARSING RULE E21")}
+parse_E20 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E20")}
     tk := get_tk(p) or_return
 
     if tk.kind == .Fun {
@@ -258,7 +256,7 @@ parse_E21 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         return expr, true
     }
 
-    return parse_E20(p)
+    return parse_E19(p)
 }
 
 parse_fun_app_params :: proc(p: ^Parser, params: ^[dynamic]^AST.Expr) -> (ok: bool) {
@@ -276,32 +274,6 @@ parse_fun_app_params :: proc(p: ^Parser, params: ^[dynamic]^AST.Expr) -> (ok: bo
         return parse_fun_app_params(p, params)
     }
     return true 
-}
-
-parse_E20 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
-    when PARSER_TRACING { fmt.println("PARSING RULE E20")}
-    tk, got_tk := get_tk(p)
-
-    if got_tk && tk.kind == .Ident {
-        p.tk_advanced += 1
-        fun_name := tk.payload.(string)
-
-        tk, got_tk = get_tk(p)
-        if !got_tk || tk.kind != .Left_Par { p.tk_advanced -= 1; return parse_E19(p)}
-        p.tk_advanced += 1
-
-        params := make([dynamic]^AST.Expr)
-        parse_fun_app_params(p, &params) or_return
-
-        tk = get_tk(p) or_return
-        if tk.kind != .Right_Par { p.tk_advanced = p.cursor; return }
-        p.tk_advanced += 1
-
-        expr = AST.fun_app_make(fun_name, params)
-        return expr, true
-    }
-
-    return parse_E19(p)
 }
 
 parse_match_patterns :: proc(p: ^Parser, patterns: ^map[AST.Match_Pattern]^AST.Expr) -> (ok: bool) {
@@ -478,7 +450,8 @@ parse_E16 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         e2_e2_e1 := parse_E_minus(p) or_return
 
         e2_e2 := AST.sequence_make(e2_e2_e1, e2_e2_e2)
-        e2 := AST.while_make(e2_e1, e2_e2)
+        e2_e2_r := AST.scope_make(e2_e2)
+        e2 := AST.while_make(e2_e1, e2_e2_r)
 
         expr = AST.sequence_make(e1, e2)
         return expr, true
@@ -643,7 +616,9 @@ parse_E10 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     when PARSER_TRACING { fmt.println("PARSING RULE E10")}
     x, x_parsed := parse_ident(p)
     if x_parsed {
-        tk := get_tk(p) or_return
+        tk, got_tk := get_tk(p)
+        if !got_tk { expr = AST.variable_make(x); return expr, true }
+
         if tk.kind == .Less {
             p.tk_advanced += 1
             tk, got_tk := get_tk(p)
@@ -716,7 +691,6 @@ parse_E10 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
             expr = AST.assignment_make(x, e1)
             return expr, true
         }
-
         p.tk_advanced -= 1
     }
     return parse_E9(p)
@@ -1036,20 +1010,38 @@ parse_E1 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     if ok { return }
 
     expr, ok = parse_variable(p)
+
     tk, got_tk := get_tk(p)
+    if ok {
+        if got_tk && tk.kind == .Left_Par {
+            p.tk_advanced += 1
+            tk, got_tk = get_tk(p)
+
+            params := make([dynamic]^AST.Expr)
+            parse_fun_app_params(p, &params) or_return
+
+            tk = get_tk(p) or_return
+            if tk.kind != .Right_Par { p.tk_advanced = p.cursor; return }
+            p.tk_advanced += 1
+
+            expr = AST.fun_app_make(expr, params)
+            return expr, true
+        }
+
+        if got_tk && tk.kind == .Period {
+            p.tk_advanced += 1
+            field, got_field := parse_ident(p)
+            if !got_field { p.tk_advanced -= 1; return }
+            expr = AST.field_access_make(expr.(AST.Variable).x, field)
+            return expr, true
+        }
+    }
+
     if got_tk && tk.kind == .Minus {
         p.tk_advanced += 1
         e1, e1_parsed := parse_E1(p)
         if !e1_parsed { p.tk_advanced -= 1; return }
         expr = AST.unary_make(.U_Minus, e1)
-        return expr, true
-    }
-
-    if got_tk && tk.kind == .Period {
-        p.tk_advanced += 1
-        field, got_field := parse_ident(p)
-        if !got_field { p.tk_advanced -= 1; return }
-        expr = AST.field_access_make(expr.(AST.Variable).x, field)
         return expr, true
     }
 
