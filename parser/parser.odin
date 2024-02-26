@@ -263,7 +263,7 @@ parse_fun_app_params :: proc(p: ^Parser, params: ^[dynamic]^AST.Expr) -> (ok: bo
     tk := get_tk(p) or_return
     if tk.kind == .Right_Par { return true }
 
-    e := parse_E8(p) or_return
+    e := parse_E(p) or_return
     append_elem(params, e)
 
     tk = get_tk(p) or_return
