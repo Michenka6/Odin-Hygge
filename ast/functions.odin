@@ -24,121 +24,116 @@ struct_type_make :: proc(fields: map[string]^Pretype) -> (pt: ^Pretype) {
     return
 }
 
-sequence_make :: proc(e1: ^Node, e2: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Sequence { e1, e2 }
+sequence_make :: proc(e1: ^Expr, e2: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Sequence { e1, e2 }
     return
 }
 
-fun_app_make :: proc(fun_name: string, params: [dynamic]^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Fun_App { fun_name, params }
+type_ascription_make :: proc(e1: ^Expr, pt: ^Pretype) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Type_Ascription { e1, pt }
     return
 }
 
-match_cases_make :: proc(e1: ^Node, patterns: map[Match_Pattern]^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Match_Case { e1, patterns }
+fun_decl_make :: proc(params: map[string]^Pretype, e1: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Fun_Decl { params, e1 }
     return
 }
 
-union_constructor_make :: proc(label: string, e1: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Union_Constructor { label, e1 }
+fun_app_make :: proc(fun_name: string, params: [dynamic]^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Fun_App { fun_name, params }
     return
 }
 
-struct_make :: proc(fields: map[string]^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Struct { fields }
+match_cases_make :: proc(e1: ^Expr, patterns: map[Match_Pattern]^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Match_Case { e1, patterns }
     return
 }
 
-while_make :: proc(e1: ^Node, e2: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = While { e1, e2 }
+union_constructor_make :: proc(label: string, e1: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Union_Constructor { label, e1 }
     return
 }
 
-type_decl_make :: proc(x: string, pt: ^Pretype, e1: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Type_Decl { x, pt, e1 }
+struct_make :: proc(fields: map[string]^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Struct { fields }
     return
 }
 
-let_make :: proc(is_mut: bool, x: string, pt: ^Pretype, e1: ^Node, e2: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Let { is_mut, x, pt, e1, e2 }
+while_make :: proc(e1: ^Expr, e2: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = While { e1, e2 }
     return
 }
 
-if_else_make :: proc(e1: ^Node, e2: ^Node, e3: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = If_Else { e1, e2, e3 }
+type_decl_make :: proc(x: string, pt: ^Pretype, e1: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Type_Decl { x, pt, e1 }
     return
 }
 
-assignment_make :: proc(x: string, e1: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Assignment { x, e1 }
+let_make :: proc(is_mut: bool, x: string, pt: ^Pretype, e1: ^Expr, e2: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Let { is_mut, x, pt, e1, e2 }
     return
 }
 
-unary_make :: proc(op: Unary_Op, e1: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Unary_Fun { op, e1 }
+if_else_make :: proc(e1: ^Expr, e2: ^Expr, e3: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = If_Else { e1, e2, e3 }
     return
 }
 
-binary_make :: proc(op: Binary_Op, e1: ^Node, e2: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Binary_Fun { op, e1, e2 }
+assignment_make :: proc(x: string, e1: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Assignment { x, e1 }
     return
 }
 
-variable_make :: proc(x: string) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Variable { x }
+unary_make :: proc(op: Unary_Op, e1: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Unary_Fun { op, e1 }
     return
 }
 
-field_access_make :: proc(x: string, field: string) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Field_Access { x, field }
+binary_make :: proc(op: Binary_Op, e1: ^Expr, e2: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Binary_Fun { op, e1, e2 }
     return
 }
 
-value_make :: proc (type: Value_Type, v: Value_Payload) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Value { type, v }
+variable_make :: proc(x: string) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Variable { x }
     return
 }
 
-parens_make :: proc (e1: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Parens { e1 }
+field_access_make :: proc(x: string, field: string) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Field_Access { x, field }
     return
 }
 
-scope_make :: proc (e1: ^Node) -> (node: ^Node) {
-    node  = new(Node)
-    node.expr = new(Expr)
-    node.expr^ = Scope { e1 }
+value_make :: proc (type: Value_Type, v: Value_Payload) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Value { type, v }
+    return
+}
+
+parens_make :: proc (e1: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Parens { e1 }
+    return
+}
+
+scope_make :: proc (e1: ^Expr) -> (expr: ^Expr) {
+    expr  = new(Expr)
+    expr^ = Scope { e1 }
     return
 }

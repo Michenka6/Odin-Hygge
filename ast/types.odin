@@ -29,13 +29,10 @@ Pretype :: union {
     Union_Type,
 }
 
-Node :: struct {
-    pos:   Position,
-    expr: ^Expr,
-}
-
 Expr :: union {
     Sequence,
+    Type_Ascription,
+    Fun_Decl,
     Fun_App,
     Match_Case,
     Union_Constructor,
@@ -54,9 +51,19 @@ Expr :: union {
     Scope,
 }
 
+Type_Ascription :: struct {
+    e1: ^Expr,
+    pt: ^Pretype,
+}
+
+Fun_Decl :: struct {
+    params:   map[string]^Pretype,
+    e1:      ^Expr,
+}
+
 Fun_App :: struct {
     fun_name: string,
-    params:   [dynamic]^Node,
+    params:   [dynamic]^Expr,
 }
 
 Match_Pattern :: struct {
@@ -65,52 +72,52 @@ Match_Pattern :: struct {
 }
 
 Match_Case :: struct {
-    e1:      ^Node,
-    patterns: map[Match_Pattern]^Node,
+    e1:      ^Expr,
+    patterns: map[Match_Pattern]^Expr,
 }
 
 Union_Constructor :: struct {
     label: string,
-    e1:   ^Node,
+    e1:   ^Expr,
 }
 
 Struct :: struct {
-    fields: map[string]^Node,
+    fields: map[string]^Expr,
 }
 
 While :: struct {
-    e1: ^Node,
-    e2: ^Node,
+    e1: ^Expr,
+    e2: ^Expr,
 }
 
 Type_Decl :: struct {
     x:   string,
     pt: ^Pretype,
-    e1: ^Node,
+    e1: ^Expr,
 }
 
 Let :: struct {
     is_mut: bool,
     x:      string,
     pt:    ^Pretype,
-    e1:    ^Node,
-    e2:    ^Node,
+    e1:    ^Expr,
+    e2:    ^Expr,
 }
 
 Sequence :: struct {
-    e1: ^Node,
-    e2: ^Node,
+    e1: ^Expr,
+    e2: ^Expr,
 }
 
 If_Else :: struct {
-    e1: ^Node,
-    e2: ^Node,
-    e3: ^Node,
+    e1: ^Expr,
+    e2: ^Expr,
+    e3: ^Expr,
 }
 
 Assignment :: struct {
     x:   string,
-    e1: ^Node,
+    e1: ^Expr,
 }
 
 Unary_Op :: enum {
@@ -126,7 +133,7 @@ Unary_Op :: enum {
 
 Unary_Fun :: struct {
     op:  Unary_Op,
-    e1: ^Node,
+    e1: ^Expr,
 }
 
 Binary_Op :: enum {
@@ -148,8 +155,8 @@ Binary_Op :: enum {
 
 Binary_Fun :: struct {
     op:  Binary_Op,
-    e1: ^Node,
-    e2: ^Node,
+    e1: ^Expr,
+    e2: ^Expr,
 }
 
 Variable :: struct {
@@ -182,9 +189,9 @@ Value :: struct {
 }
 
 Parens :: struct {
-    e1: ^Node,
+    e1: ^Expr,
 }
 
 Scope :: struct {
-    e1: ^Node,
+    e1: ^Expr,
 }

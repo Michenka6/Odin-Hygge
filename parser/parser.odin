@@ -23,6 +23,9 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
         MATCH_CASES :=
                     |   LABEL "{" VARIABLE "}" "-" ">" E-1
                     |   LABEL "{" VARIABLE "}" "-" ">" E-1 ";" MATCH_CASES
+        ARGUMENTS   :=
+                    |   VARIABLE ":" PRETYPE
+                    |   VARIABLE ":" PRETYPE "," ARGUMENTS
         E1  :=
             |   "-" E1
             |   VALUE
@@ -103,39 +106,162 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
         E20 :=
             |   VARIABLE "(" FUN_PARAMS ")"
             |   E19
-
-
-
-
-        E16 :=
-            |   E10 ":" PRETYPE
-
-        "fun" VARIABLE "(" ARGUMENTS ")" "-" ">" E
-        "fun" "(" ARGUMENTS ")" "-" ">" E
-
-            |   E15
-
-        E   :=  E12 | E12 ";" E
+        E21 :=
+            |   "fun" VARIABLE "(" ARGUMENTS ")" ":" PRETYPE "=" E-1 ";" E
+            |   E20
+        E22 :=
+            |   "fun" "(" ARGUMENTS ")" "-" ">" E
+            |   E21
+        E23 :=
+            |   E22 ":" PRETYPE
+            |   E22
+        E   :=  E22 | E22 ";" E
     */
 
-parse_E :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+PARSER_TRACING :: false
+
+parse_E :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E")}
     e1 := parse_E_minus(p) or_return
     tk, got_tk := get_tk(p)
     if got_tk && tk.kind == .Semi_Colon {
          p.tk_advanced += 1
          e2 := parse_E(p) or_return
 
-         node = AST.sequence_make(e1, e2)
-         return node, true
+         expr = AST.sequence_make(e1, e2)
+         return expr, true
     }
     return e1, true
 }
 
-parse_E_minus :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
-    return parse_E19(p)
+parse_E_minus :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    return parse_E23(p)
 }
 
-parse_fun_app_params :: proc(p: ^Parser, params: ^[dynamic]^AST.Node) -> (ok: bool) {
+parse_E23 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E23")}
+    e1 := parse_E22(p) or_return
+
+    tk, got_tk := get_tk(p)
+    if got_tk && tk.kind == .Colon {
+        p.tk_advanced += 1
+        pt := parse_pretype(p) or_return
+
+        expr = AST.type_ascription_make(e1, pt)
+        return expr, true
+    }
+    return e1, true
+}
+
+parse_fun_decl_params :: proc(p: ^Parser, params: ^map[string]^AST.Pretype) -> (ok: bool) {
+    tk := get_tk(p) or_return
+    if tk.kind == .Right_Par { return true }
+
+    param := parse_ident(p) or_return
+
+    tk = get_tk(p) or_return
+    if tk.kind != .Colon { p.tk_advanced -= 1; return }
+    p.tk_advanced += 1
+
+    pt := parse_pretype(p) or_return
+
+    params[param] = pt
+
+    tk = get_tk(p) or_return
+    if tk.kind == .Comma {
+        p.tk_advanced += 1
+        return parse_fun_decl_params(p, params)
+    }
+    return true 
+}
+
+parse_E22 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E22")}
+    tk := get_tk(p) or_return
+
+    if tk.kind == .Fun {
+        p.tk_advanced += 1
+
+        tk = get_tk(p) or_return
+        if tk.kind != .Left_Par { p.tk_advanced -= 1; return parse_E21(p)}
+        p.tk_advanced += 1
+
+        params := make(map[string]^AST.Pretype)
+        parse_fun_decl_params(p, &params) or_return
+
+        tk = get_tk(p) or_return
+        if tk.kind != .Right_Par { p.tk_advanced = p.cursor; return }
+        p.tk_advanced += 1
+
+        tk = get_tk(p) or_return
+        if tk.kind != .Minus { p.tk_advanced = p.cursor; return }
+        p.tk_advanced += 1
+
+        tk = get_tk(p) or_return
+        if tk.kind != .Greater { p.tk_advanced = p.cursor; return }
+        p.tk_advanced += 1
+
+        e1 := parse_E_minus(p) or_return
+
+        expr = AST.fun_decl_make(params, e1)
+        return expr, true
+    }
+
+    return parse_E21(p)
+}
+
+parse_E21 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E21")}
+    tk := get_tk(p) or_return
+
+    if tk.kind == .Fun {
+        fun_name := ""
+        p.tk_advanced += 1
+
+        tk = get_tk(p) or_return
+        if tk.kind == .Ident {
+            fun_name = tk.payload.(string)
+            p.tk_advanced += 1
+        }
+        
+        tk = get_tk(p) or_return
+        if tk.kind != .Left_Par { p.tk_advanced = p.cursor; return }
+        p.tk_advanced += 1
+
+        params := make(map[string]^AST.Pretype)
+        parse_fun_decl_params(p, &params) or_return
+
+        tk = get_tk(p) or_return
+        if tk.kind != .Right_Par { p.tk_advanced = p.cursor; return }
+        p.tk_advanced += 1
+
+        tk = get_tk(p) or_return
+        if tk.kind != .Colon { p.tk_advanced = p.cursor; return }
+        p.tk_advanced += 1
+
+        pt := parse_pretype(p) or_return
+        
+        tk = get_tk(p) or_return
+        if tk.kind != .Eq { p.tk_advanced = p.cursor; return }
+        p.tk_advanced += 1
+
+        e1_e1 := parse_E_minus(p) or_return
+
+        tk = get_tk(p) or_return
+        if tk.kind != .Semi_Colon { p.tk_advanced = p.cursor; return }
+        p.tk_advanced += 1
+
+        e2 := parse_E(p) or_return
+
+        e1 := AST.fun_decl_make(params, e1_e1)
+        expr = AST.let_make(false, fun_name, pt, e1, e2)
+        return expr, true
+    }
+
+    return parse_E20(p)
+}
+
+parse_fun_app_params :: proc(p: ^Parser, params: ^[dynamic]^AST.Expr) -> (ok: bool) {
     tk := get_tk(p) or_return
     if tk.kind == .Right_Par { return true }
 
@@ -152,11 +278,11 @@ parse_fun_app_params :: proc(p: ^Parser, params: ^[dynamic]^AST.Node) -> (ok: bo
     return true 
 }
 
-parse_E20 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E20 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E20")}
     tk, got_tk := get_tk(p)
 
     if got_tk && tk.kind == .Ident {
-        pos := tk.pos
         p.tk_advanced += 1
         fun_name := tk.payload.(string)
 
@@ -164,22 +290,21 @@ parse_E20 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         if !got_tk || tk.kind != .Left_Par { p.tk_advanced -= 1; return parse_E19(p)}
         p.tk_advanced += 1
 
-        params := make([dynamic]^AST.Node)
+        params := make([dynamic]^AST.Expr)
         parse_fun_app_params(p, &params) or_return
 
         tk = get_tk(p) or_return
         if tk.kind != .Right_Par { p.tk_advanced = p.cursor; return }
         p.tk_advanced += 1
 
-        node = AST.fun_app_make(fun_name, params)
-        node.pos = pos
-        return node, true
+        expr = AST.fun_app_make(fun_name, params)
+        return expr, true
     }
 
     return parse_E19(p)
 }
 
-parse_match_patterns :: proc(p: ^Parser, patterns: ^map[AST.Match_Pattern]^AST.Node) -> (ok: bool) {
+parse_match_patterns :: proc(p: ^Parser, patterns: ^map[AST.Match_Pattern]^AST.Expr) -> (ok: bool) {
     tk := get_tk(p) or_return
     if tk.kind == .Right_Cur { return true }
 
@@ -216,11 +341,11 @@ parse_match_patterns :: proc(p: ^Parser, patterns: ^map[AST.Match_Pattern]^AST.N
     return true 
 }
 
-parse_E19 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E19 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E19")}
     tk := get_tk(p) or_return
 
     if tk.kind == .Match {
-        pos := tk.pos
         p.tk_advanced += 1
 
         e1 := parse_E(p) or_return
@@ -228,32 +353,30 @@ parse_E19 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         tk = get_tk(p) or_return
         if tk.kind != .With { p.tk_advanced = p.cursor; return }
         p.tk_advanced += 1
-        fmt.println(AST.node_to_string(e1, ""))
 
         tk = get_tk(p) or_return
         if tk.kind != .Left_Cur { p.tk_advanced = p.cursor; return }
         p.tk_advanced += 1
 
-        patterns := make(map[AST.Match_Pattern]^AST.Node)
+        patterns := make(map[AST.Match_Pattern]^AST.Expr)
         parse_match_patterns(p, &patterns) or_return
 
         tk = get_tk(p) or_return
         if tk.kind != .Right_Cur { p.tk_advanced = p.cursor; return }
         p.tk_advanced += 1
 
-        node = AST.match_cases_make(e1, patterns)
-        node.pos = pos
-        return node, true
+        expr = AST.match_cases_make(e1, patterns)
+        return expr, true
     }
 
     return parse_E18(p)
 }
 
-parse_E18 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E18 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E18")}
     tk, got_tk := get_tk(p)
 
     if got_tk && tk.kind == .Ident {
-        pos := tk.pos
         p.tk_advanced += 1
         label := tk.payload.(string)
 
@@ -262,22 +385,21 @@ parse_E18 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         p.tk_advanced += 1
 
         e1, e1_parsed := parse_E8(p)
-        // fmt.println(AST.node_to_string(e1, ""))
+        // fmt.println(AST.expr_to_string(e1, ""))
         if !e1_parsed { p.tk_advanced -= 2; return parse_E17(p) }
 
         tk = get_tk(p) or_return
         if tk.kind != .Right_Cur { p.tk_advanced = p.cursor; return parse_E17(p) }
         p.tk_advanced += 1
 
-        node = AST.union_constructor_make(label, e1)
-        node.pos = pos
-        return node, true
+        expr = AST.union_constructor_make(label, e1)
+        return expr, true
     }
 
     return parse_E17(p)
 }
 
-parse_fields :: proc(p: ^Parser, fields: ^map[string]^AST.Node) -> (ok: bool) {
+parse_fields :: proc(p: ^Parser, fields: ^map[string]^AST.Expr) -> (ok: bool) {
     tk := get_tk(p) or_return
     if tk.kind == .Right_Cur { return true }
 
@@ -299,37 +421,36 @@ parse_fields :: proc(p: ^Parser, fields: ^map[string]^AST.Node) -> (ok: bool) {
     return true 
 }
 
-parse_E17 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E17 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E17")}
     tk := get_tk(p) or_return
 
     if tk.kind == .Struct {
-        pos := tk.pos
         p.tk_advanced += 1
 
         tk = get_tk(p) or_return
         if tk.kind != .Left_Cur { p.tk_advanced -= 1; return }
         p.tk_advanced += 1
 
-        fields := make(map[string]^AST.Node) 
+        fields := make(map[string]^AST.Expr) 
         parse_fields(p, &fields) or_return
 
         tk = get_tk(p) or_return
         if tk.kind != .Right_Cur { p.tk_advanced = p.cursor; return }
         p.tk_advanced += 1
 
-        node = AST.struct_make(fields)
-        node.pos = pos
-        return node, true
+        expr = AST.struct_make(fields)
+        return expr, true
     }
 
     return parse_E16(p)
 }
 
-parse_E16 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E16 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E16")}
     tk := get_tk(p) or_return
 
     if tk.kind == .For {
-        pos := tk.pos
         p.tk_advanced += 1
 
         tk = get_tk(p) or_return
@@ -359,19 +480,18 @@ parse_E16 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         e2_e2 := AST.sequence_make(e2_e2_e1, e2_e2_e2)
         e2 := AST.while_make(e2_e1, e2_e2)
 
-        node = AST.sequence_make(e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.sequence_make(e1, e2)
+        return expr, true
     }
 
     return parse_E15(p)
 }
 
-parse_E15 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E15 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E15")}
     tk := get_tk(p) or_return
 
     if tk.kind == .Do {
-        pos := tk.pos
         p.tk_advanced += 1
 
         e1 := parse_E_minus(p) or_return
@@ -384,19 +504,18 @@ parse_E15 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
 
         e2 := AST.while_make(e2_e1, e1)
 
-        node = AST.sequence_make(e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.sequence_make(e1, e2)
+        return expr, true
     }
 
     return parse_E14(p)
 }
 
-parse_E14 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E14 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E14")}
     tk := get_tk(p) or_return
 
     if tk.kind == .While {
-        pos := tk.pos
         p.tk_advanced += 1
 
         e1 := parse_E8(p) or_return
@@ -407,19 +526,18 @@ parse_E14 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
 
         e2 := parse_E_minus(p) or_return
 
-        node = AST.while_make(e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.while_make(e1, e2)
+        return expr, true
     }
 
     return parse_E13(p)
 }
 
-parse_E13 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E13 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E13")}
     tk := get_tk(p) or_return
 
     if tk.kind == .Type {
-        pos := tk.pos
         p.tk_advanced += 1
 
         x := parse_ident(p) or_return
@@ -439,19 +557,18 @@ parse_E13 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
 
         e1 := parse_E(p) or_return
 
-        node = AST.type_decl_make(x, pt, e1)
-        node.pos = pos
-        return node, true
+        expr = AST.type_decl_make(x, pt, e1)
+        return expr, true
     }
 
     return parse_E12(p)
 }
 
-parse_E12 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E12 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E12")}
     tk := get_tk(p) or_return
 
     if tk.kind == .Let {
-        pos := tk.pos
         p.tk_advanced += 1
         is_mut := false
 
@@ -485,19 +602,18 @@ parse_E12 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         p.tk_advanced += 1
 
         e2 := parse_E(p) or_return
-        node = AST.let_make(is_mut, x, pt, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.let_make(is_mut, x, pt, e1, e2)
+        return expr, true
     }
 
     return parse_E11(p)
 }
 
-parse_E11 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E11 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E11")}
     tk := get_tk(p) or_return
 
     if tk.kind == .If {
-        pos := tk.pos
         p.tk_advanced += 1
         e1, e1_parsed := parse_E8(p)
         if !e1_parsed { p.tk_advanced -= 1; return }
@@ -516,102 +632,89 @@ parse_E11 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         e3, e3_parsed := parse_E_minus(p)
         if !e3_parsed { p.tk_advanced = p.cursor; return }
 
-        node = AST.if_else_make(e1, e2, e3)
-        node.pos = pos
-        return node, true
+        expr = AST.if_else_make(e1, e2, e3)
+        return expr, true
     }
 
     return parse_E10(p)
 }
 
-parse_E10 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E10 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E10")}
     x, x_parsed := parse_ident(p)
     if x_parsed {
         tk := get_tk(p) or_return
-        pos := tk.pos
         if tk.kind == .Less {
             p.tk_advanced += 1
             tk, got_tk := get_tk(p)
-            if !got_tk || tk.kind != .Minus { p.tk_advanced -= 2; return }
+            if !got_tk || tk.kind != .Minus { p.tk_advanced -= 2; return parse_E9(p) }
             p.tk_advanced += 1
 
             e1 := parse_E8(p) or_return
 
-            node = AST.assignment_make(x, e1)
-            node.pos = pos
-            return node, true
+            expr = AST.assignment_make(x, e1)
+            return expr, true
         }
 
         if tk.kind == .Plus {
             p.tk_advanced += 1
             tk, got_tk := get_tk(p)
-            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return }
+            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return parse_E9(p) }
             p.tk_advanced += 1
 
             e1_e2 := parse_E8(p) or_return
 
             e1_e1 := AST.variable_make(x)
-            e1_e1.pos = pos
 
             e1 := AST.binary_make(.Plus, e1_e1, e1_e2)
-            e1.pos = pos
-            node = AST.assignment_make(x, e1)
-            node.pos = pos
-            return node, true
+
+            expr = AST.assignment_make(x, e1)
+            return expr, true
         }
 
         if tk.kind == .Minus {
             p.tk_advanced += 1
             tk, got_tk := get_tk(p)
-            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return }
+            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return parse_E9(p) }
             p.tk_advanced += 1
 
             e1_e2 := parse_E8(p) or_return
 
             e1_e1 := AST.variable_make(x)
-            e1_e1.pos = pos
 
             e1 := AST.binary_make(.Minus, e1_e1, e1_e2)
-            e1.pos = pos
-            node = AST.assignment_make(x, e1)
-            node.pos = pos
-            return node, true
+            expr = AST.assignment_make(x, e1)
+            return expr, true
         }
 
         if tk.kind == .Times {
             p.tk_advanced += 1
             tk, got_tk := get_tk(p)
-            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return }
+            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return parse_E9(p) }
             p.tk_advanced += 1
 
             e1_e2 := parse_E8(p) or_return
 
             e1_e1 := AST.variable_make(x)
-            e1_e1.pos = pos
 
             e1 := AST.binary_make(.Times, e1_e1, e1_e2)
-            e1.pos = pos
-            node = AST.assignment_make(x, e1)
-            node.pos = pos
-            return node, true
+            expr = AST.assignment_make(x, e1)
+            return expr, true
         }
 
         if tk.kind == .Div {
             p.tk_advanced += 1
             tk, got_tk := get_tk(p)
-            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return }
+            if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return parse_E9(p) }
             p.tk_advanced += 1
 
             e1_e2 := parse_E8(p) or_return
 
             e1_e1 := AST.variable_make(x)
-            e1_e1.pos = pos
 
             e1 := AST.binary_make(.Divide, e1_e1, e1_e2)
-            e1.pos = pos
-            node = AST.assignment_make(x, e1)
-            node.pos = pos
-            return node, true
+            expr = AST.assignment_make(x, e1)
+            return expr, true
         }
 
         p.tk_advanced -= 1
@@ -619,11 +722,11 @@ parse_E10 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
     return parse_E9(p)
 }
 
-parse_E9 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E9 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E9")}
     tk, got_tk := get_tk(p)
 
     if got_tk && tk.kind == .Read_Float {
-        pos := tk.pos
         p.tk_advanced += 1
         tk = get_tk(p) or_return
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
@@ -633,12 +736,10 @@ parse_E9 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         if tk.kind != .Right_Par { return }
         p.tk_advanced += 1
 
-        node = AST.unary_make(.Read_Float, nil)
-        node.pos = pos
-        return node, true
+        expr = AST.unary_make(.Read_Float, nil)
+        return expr, true
     }
     if got_tk && tk.kind == .Read_Int {
-        pos := tk.pos
         p.tk_advanced += 1
         tk = get_tk(p) or_return
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
@@ -648,12 +749,10 @@ parse_E9 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         if tk.kind != .Right_Par { return }
         p.tk_advanced += 1
 
-        node = AST.unary_make(.Read_Int, nil)
-        node.pos = pos
-        return node, true
+        expr = AST.unary_make(.Read_Int, nil)
+        return expr, true
     }
     if got_tk && tk.kind == .Print {
-        pos := tk.pos
         p.tk_advanced += 1
         tk = get_tk(p) or_return
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
@@ -665,13 +764,11 @@ parse_E9 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         if tk.kind != .Right_Par { return }
         p.tk_advanced += 1
 
-        node = AST.unary_make(.Print, e1)
-        node.pos = pos
-        return node, true
+        expr = AST.unary_make(.Print, e1)
+        return expr, true
     }
 
     if got_tk && tk.kind == .PrintLn {
-        pos := tk.pos
         p.tk_advanced += 1
         tk = get_tk(p) or_return
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
@@ -683,13 +780,11 @@ parse_E9 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         if tk.kind != .Right_Par { return }
         p.tk_advanced += 1
 
-        node = AST.unary_make(.Println, e1)
-        node.pos = pos
-        return node, true
+        expr = AST.unary_make(.Println, e1)
+        return expr, true
     }
 
     if got_tk && tk.kind == .Assert {
-        pos := tk.pos
         p.tk_advanced += 1
         tk = get_tk(p) or_return
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
@@ -701,75 +796,71 @@ parse_E9 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         if tk.kind != .Right_Par { return }
         p.tk_advanced += 1
 
-        node = AST.unary_make(.Assert, e1)
-        node.pos = pos
-        return node, true
+        expr = AST.unary_make(.Assert, e1)
+        return expr, true
     }
 
     return parse_E8(p)
 }
 
-parse_E8 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E8 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E8")}
     e1 := parse_E7(p) or_return
 
     tk, got_tk := get_tk(p)
     if !got_tk { return e1, true }
 
     if tk.kind == .And {
-        pos := tk.pos
         p.tk_advanced += 1
         e2, e2_parsed := parse_E7(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
 
-        node = AST.binary_make(.And, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.binary_make(.And, e1, e2)
+        return expr, true
     }
     return e1, true
 }
 
-parse_E7 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E7 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E7")}
     e1 := parse_E6(p) or_return
 
     tk, got_tk := get_tk(p)
     if !got_tk { return e1, true }
 
     if tk.kind == .Or {
-        pos := tk.pos
         p.tk_advanced += 1
         e2, e2_parsed := parse_E7(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
 
-        node = AST.binary_make(.Or, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.binary_make(.Or, e1, e2)
+        return expr, true
     }
     return e1, true
 }
 
-parse_E6 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E6 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E6")}
     tk := get_tk(p) or_return
     if tk.kind == .Not {
-        pos := tk.pos
         p.tk_advanced += 1
 
         e1 := parse_E6(p) or_return
 
-        node = AST.unary_make(.Not, e1)
-        node.pos = pos
-        return node, true
+        expr = AST.unary_make(.Not, e1)
+        return expr, true
     }
     return parse_E5(p)
 }
 
-parse_E5 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E5 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E5")}
     e1 := parse_E4(p) or_return
 
     tk, got_tk := get_tk(p)
     if !got_tk { return e1, true }
 
     if tk.kind == .Less {
-        pos := tk.pos
         op : AST.Binary_Op = .Less
         p.tk_advanced += 1
 
@@ -782,13 +873,11 @@ parse_E5 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         e2, e2_parsed := parse_E4(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
         
-        node = AST.binary_make(op, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.binary_make(op, e1, e2)
+        return expr, true
     }
 
     if tk.kind == .Greater {
-        pos := tk.pos
         op : AST.Binary_Op = .Greater
         p.tk_advanced += 1
 
@@ -800,30 +889,27 @@ parse_E5 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
 
         e2, e2_parsed := parse_E4(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
-        node = AST.binary_make(.Greater, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.binary_make(.Greater, e1, e2)
+        return expr, true
     }
 
     if tk.kind == .Eq {
-        pos := tk.pos
         p.tk_advanced += 1
         e2, e2_parsed := parse_E4(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
         
-        node = AST.binary_make(.Equals, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.binary_make(.Equals, e1, e2)
+        return expr, true
     }
 
     return e1, true
 }
 
-parse_E4 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E4 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E4")}
     tk, got_tk := get_tk(p)
 
     if got_tk && tk.kind == .Max {
-        pos := tk.pos
         p.tk_advanced += 1
         tk = get_tk(p) or_return
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
@@ -841,12 +927,11 @@ parse_E4 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         if tk.kind != .Right_Par { return }
         p.tk_advanced += 1
 
-        node = AST.binary_make(.Max, e1, e2)
-        return node, true
+        expr = AST.binary_make(.Max, e1, e2)
+        return expr, true
     }
 
     if got_tk && tk.kind == .Min {
-        pos := tk.pos
         p.tk_advanced += 1
         tk = get_tk(p) or_return
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
@@ -864,12 +949,11 @@ parse_E4 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         if tk.kind != .Right_Par { return }
         p.tk_advanced += 1
 
-        node = AST.binary_make(.Min, e1, e2)
-        return node, true
+        expr = AST.binary_make(.Min, e1, e2)
+        return expr, true
     }
 
     if got_tk && tk.kind == .Sqrt {
-        pos := tk.pos
         p.tk_advanced += 1
         tk = get_tk(p) or_return
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
@@ -881,138 +965,126 @@ parse_E4 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
         if tk.kind != .Right_Par { return }
         p.tk_advanced += 1
 
-        node = AST.unary_make(.Sqrt, e1)
-        return node, true
+        expr = AST.unary_make(.Sqrt, e1)
+        return expr, true
     }
     return parse_E3(p)
 }
 
-parse_E3 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E3 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E3")}
     e1 := parse_E2(p) or_return
 
     tk, got_tk := get_tk(p)
     if !got_tk { return e1, true }
 
     if tk.kind == .Plus {
-        pos := tk.pos
         p.tk_advanced += 1
         e2, e2_parsed := parse_E3(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
-        node = AST.binary_make(.Plus, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.binary_make(.Plus, e1, e2)
+        return expr, true
     }
 
     if tk.kind == .Minus {
-        pos := tk.pos
         p.tk_advanced += 1
         e2, e2_parsed := parse_E3(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
-        node = AST.binary_make(.Minus, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.binary_make(.Minus, e1, e2)
+        return expr, true
     }
     return e1, true
 }
 
-parse_E2 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E2")}
     e1 := parse_E1(p) or_return
 
     tk, got_tk := get_tk(p)
     if !got_tk { return e1, true }
 
     if tk.kind == .Mod {
-        pos := tk.pos
         p.tk_advanced += 1
         e2, e2_parsed := parse_E2(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
-        node = AST.binary_make(.Modulus, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.binary_make(.Modulus, e1, e2)
+        return expr, true
     }
 
     if tk.kind == .Times {
-        pos := tk.pos
         p.tk_advanced += 1
         e2, e2_parsed := parse_E2(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
-        node = AST.binary_make(.Times, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.binary_make(.Times, e1, e2)
+        return expr, true
     }
 
     if tk.kind == .Div {
-        pos := tk.pos
         p.tk_advanced += 1
         e2, e2_parsed := parse_E2(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
-        node = AST.binary_make(.Divide, e1, e2)
-        node.pos = pos
-        return node, true
+        expr = AST.binary_make(.Divide, e1, e2)
+        return expr, true
     }
 
     return e1, true
 }
 
-parse_E1 :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
-    node, ok = parse_value(p)
+parse_E1 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+    when PARSER_TRACING { fmt.println("PARSING RULE E1")}
+    expr, ok = parse_value(p)
     if ok { return }
 
-    node, ok = parse_variable(p)
+    expr, ok = parse_variable(p)
     tk, got_tk := get_tk(p)
     if got_tk && tk.kind == .Minus {
-        pos := tk.pos
         p.tk_advanced += 1
         e1, e1_parsed := parse_E1(p)
         if !e1_parsed { p.tk_advanced -= 1; return }
-        node = AST.unary_make(.U_Minus, e1)
-        node.pos = pos
-        return node, true
+        expr = AST.unary_make(.U_Minus, e1)
+        return expr, true
     }
 
     if got_tk && tk.kind == .Period {
         p.tk_advanced += 1
         field, got_field := parse_ident(p)
         if !got_field { p.tk_advanced -= 1; return }
-        node = AST.field_access_make(node.expr.(AST.Variable).x, field)
-        return node, true
+        expr = AST.field_access_make(expr.(AST.Variable).x, field)
+        return expr, true
     }
 
     if got_tk && tk.kind == .Left_Par {
-        pos := tk.pos
         p.tk_advanced += 1
         e1 := parse_E(p) or_return
         tk, got_tk = get_tk(p)
         if !got_tk || tk.kind != .Right_Par { p.tk_advanced = p.cursor; return }
         p.tk_advanced += 1
-        node = AST.parens_make(e1)
-        node.pos = pos
-        return node, true
+        expr = AST.parens_make(e1)
+        return expr, true
     }
 
     if got_tk && tk.kind == .Left_Cur {
-        pos := tk.pos
         p.tk_advanced += 1
+
         e1 := parse_E(p) or_return
+
         tk, got_tk = get_tk(p)
         if !got_tk || tk.kind != .Right_Cur { p.tk_advanced = p.cursor; return }
         p.tk_advanced += 1
-        node = AST.scope_make(e1)
-        node.pos = pos
-        return node, true
+        expr = AST.scope_make(e1)
+        return expr, true
     }
     return
 }
 
-parse_variable :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_variable :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     tk := get_tk(p) or_return
     if tk.kind == .Ident {
-        node = AST.variable_make(tk.payload.(string))
-        node.pos = tk.pos
+        expr = AST.variable_make(tk.payload.(string))
         p.tk_advanced += 1
-        return node, true
+        return expr, true
     }
-    return node, true
+    return expr, true
 }
 
 parse_ident :: proc(p: ^Parser) -> (s: string, ok: bool) {
@@ -1025,7 +1097,7 @@ parse_ident :: proc(p: ^Parser) -> (s: string, ok: bool) {
     return
 }
 
-parse_value :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
+parse_value :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     tk := get_tk(p) or_return
 
     type: AST.Value_Type
@@ -1055,10 +1127,9 @@ parse_value :: proc(p: ^Parser) -> (node: ^AST.Node, ok: bool) {
     }
     p.tk_advanced += 1
 
-    node = AST.value_make(type, payload)
-    node.pos = tk.pos
+    expr = AST.value_make(type, payload)
 
-    return node, true
+    return expr, true
 }
 
 get_tk :: proc(p: ^Parser) -> (tk: Lexer.Token, ok: bool) {

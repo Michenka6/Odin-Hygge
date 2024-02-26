@@ -29,7 +29,7 @@ main :: proc() {
         fmt.println()
         fmt.println("AST: ")
         // fmt.println(AST.pretype_to_string(var))
-        fmt.println(AST.node_to_string(var, ""))
+        fmt.println(AST.expr_to_string(var, ""))
         // fmt.println(var.expr)
     }
 

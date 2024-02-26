@@ -1,4 +1,6 @@
-match 12 with {
-    Some{x} -> println("w")
-    Npne{x} -> println("w")
+// let x : int =
+{
+    fun privateFun(z: int): int = z + 2;
+    29
 }
+// println("hello")
