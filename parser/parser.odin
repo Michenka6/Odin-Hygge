@@ -19,6 +19,7 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
 /*
         FIELDS  := 
                 |   FIELD "=" E-1
+                |   FIELD "=" E-1
                 |   FIELD "=" E-1 ";" FIELDS
         MATCH_CASES :=
                     |   LABEL "{" VARIABLE "}" "-" ">" E-1
@@ -34,7 +35,7 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
             |   VARIABLE
             |   "(" E ")"
             |   "{" E "}"
-        E2  :=        
+        E2  :=
             |   E1 "<" "-" E
             |   E1 "-" "=" E
             |   E1 "*" "=" E
@@ -63,18 +64,20 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
         E6  :=
             |   "not" E6
             |   E4
-        E7  :=  E6 "or" E7
+        E7  :=  E6 "xor" E7
+            |   E6 "sor" E7
+            |   E6 "or" E7
             |   E6
-        E8  :=  E7 "and" E8
+        E8  :=  E7 "sand" E8
+            |   E7 "and" E8
             |   E7
         E9  :=
-            |   "readInt"   "("    ")"
-            |   "readFloat" "("    ")"
-            |   "print"     "(" E8 ")"
-            |   "println"   "(" E8 ")"
-            |   "assert"    "(" E8 ")"
+            |   "readInt"   "("   ")"
+            |   "readFloat" "("   ")"
+            |   "print"     "(" E ")"
+            |   "println"   "(" E ")"
+            |   "assert"    "(" E ")"
             |   E8
-
         E11 :=
             |   "if" E8 "then" E "else" E-1
             |   E10
@@ -380,7 +383,6 @@ parse_fields :: proc(p: ^Parser, fields: ^map[string]^AST.Expr) -> (ok: bool) {
     p.tk_advanced += 1
 
     e := parse_E_minus(p) or_return
-    fmt.println(AST.expr_to_string(e, ""))
 
     fields[field] = e
 
@@ -648,7 +650,7 @@ parse_E9 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
         p.tk_advanced += 1
 
-        e1 := parse_E8(p) or_return
+        e1 := parse_E(p) or_return
 
         tk = get_tk(p) or_return
         if tk.kind != .Right_Par { return }
@@ -664,7 +666,7 @@ parse_E9 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
         p.tk_advanced += 1
 
-        e1 := parse_E8(p) or_return
+        e1 := parse_E(p) or_return
 
         tk = get_tk(p) or_return
         if tk.kind != .Right_Par { return }
@@ -680,7 +682,7 @@ parse_E9 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         if tk.kind != .Left_Par { p.tk_advanced -= 1; return }
         p.tk_advanced += 1
 
-        e1 := parse_E8(p) or_return
+        e1 := parse_E(p) or_return
 
         tk = get_tk(p) or_return
         if tk.kind != .Right_Par { return }
@@ -700,6 +702,15 @@ parse_E8 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     tk, got_tk := get_tk(p)
     if !got_tk { return e1, true }
 
+    if tk.kind == .S_And {
+        p.tk_advanced += 1
+        e2, e2_parsed := parse_E7(p)
+        if !e2_parsed { p.tk_advanced -= 1; return }
+
+        expr = AST.binary_make(.S_And, e1, e2)
+        return expr, true
+    }
+
     if tk.kind == .And {
         p.tk_advanced += 1
         e2, e2_parsed := parse_E7(p)
@@ -717,6 +728,24 @@ parse_E7 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
 
     tk, got_tk := get_tk(p)
     if !got_tk { return e1, true }
+
+    if tk.kind == .Xor {
+        p.tk_advanced += 1
+        e2, e2_parsed := parse_E7(p)
+        if !e2_parsed { p.tk_advanced -= 1; return }
+
+        expr = AST.binary_make(.Xor, e1, e2)
+        return expr, true
+    }
+
+    if tk.kind == .S_Or {
+        p.tk_advanced += 1
+        e2, e2_parsed := parse_E7(p)
+        if !e2_parsed { p.tk_advanced -= 1; return }
+
+        expr = AST.binary_make(.S_Or, e1, e2)
+        return expr, true
+    }
 
     if tk.kind == .Or {
         p.tk_advanced += 1
@@ -779,7 +808,7 @@ parse_E5 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
 
         e2, e2_parsed := parse_E4(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
-        expr = AST.binary_make(.Greater, e1, e2)
+        expr = AST.binary_make(op, e1, e2)
         return expr, true
     }
 
@@ -896,7 +925,7 @@ parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     if tk.kind == .Less {
         p.tk_advanced += 1
         tk, got_tk := get_tk(p)
-        if !got_tk || tk.kind != .Minus { p.tk_advanced -= 2; return e1, true }
+        if !got_tk || tk.kind != .Minus { p.tk_advanced -= 1; return e1, true }
         p.tk_advanced += 1
 
         e2 := parse_E(p) or_return
@@ -908,7 +937,7 @@ parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     if tk.kind == .Plus {
         p.tk_advanced += 1
         tk, got_tk := get_tk(p)
-        if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return e1, true }
+        if !got_tk || tk.kind != .Eq { p.tk_advanced -= 1; return e1, true }
         p.tk_advanced += 1
 
         e1_e2 := parse_E(p) or_return
@@ -922,7 +951,7 @@ parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     if tk.kind == .Minus {
         p.tk_advanced += 1
         tk, got_tk := get_tk(p)
-        if !got_tk || tk.kind != .Eq { p.tk_advanced -= 2; return e1, true }
+        if !got_tk || tk.kind != .Eq { p.tk_advanced -= 1; return e1, true }
         p.tk_advanced += 1
 
         e1_e2 := parse_E(p) or_return
@@ -976,18 +1005,28 @@ parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         expr = AST.binary_make(.Modulus, e1, e2)
         return expr, true
     }
-
     return e1, true
 }
 
 parse_E1 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     when PARSER_TRACING { fmt.println("PARSING RULE E1")}
+    tk, got_tk := get_tk(p)
+    if got_tk && tk.kind == .Minus {
+        p.tk_advanced += 1
+        e1, e1_parsed := parse_E1(p)
+        if e1_parsed {
+            expr = AST.unary_make(.U_Minus, e1)
+            return expr, true
+        }
+        p.tk_advanced -= 1
+    }
+
     expr, ok = parse_value(p)
     if ok { return }
 
     expr, ok = parse_variable(p)
-
-    tk, got_tk := get_tk(p)
+    
+    tk, got_tk = get_tk(p)
     if ok {
         if got_tk && tk.kind == .Left_Par {
             p.tk_advanced += 1
@@ -1013,13 +1052,6 @@ parse_E1 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         }
     }
 
-    if got_tk && tk.kind == .Minus {
-        p.tk_advanced += 1
-        e1, e1_parsed := parse_E1(p)
-        if !e1_parsed { p.tk_advanced -= 1; return }
-        expr = AST.unary_make(.U_Minus, e1)
-        return expr, true
-    }
 
     if got_tk && tk.kind == .Left_Par {
         p.tk_advanced += 1

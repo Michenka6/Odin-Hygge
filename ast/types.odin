@@ -14,8 +14,13 @@ Fun_Sign :: struct {
     res:   ^Pretype,
 }
 
+Field_Value :: struct {
+    pt: ^Pretype,
+    is_mut: bool,
+}
+
 Struct_Type :: struct {
-    fields: map[string]^Pretype,
+    fields: map[string]^Field_Value,
 }
 
 Union_Type :: struct {
@@ -149,6 +154,9 @@ Binary_Op :: enum {
     Less_Equals,
     Greater_Equals,
     Equals,
+    Xor,
+    S_Or,
+    S_And,
     Or,
     And,
 }

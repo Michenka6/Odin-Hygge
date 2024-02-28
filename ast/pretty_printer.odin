@@ -41,7 +41,10 @@ binary_to_string :: proc(expr: Binary_Fun) -> (s: string) {
         case .Equals:           s = fmt.aprintf("%s = %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Less_Equals:      s = fmt.aprintf("%s <= %s",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Greater_Equals:   s = fmt.aprintf("%s >= %s",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Xor:              s = fmt.aprintf("(%s xor %s)", expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Or:               s = fmt.aprintf("(%s or %s)",  expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .S_Or:             s = fmt.aprintf("(%s sor %s)", expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .S_And:            s = fmt.aprintf("%s sand %s",  expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .And:              s = fmt.aprintf("%s and %s",   expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
     }
     return
@@ -79,7 +82,7 @@ fun_decl_params_to_string :: proc(params: map[string]^Pretype) -> (s: string) {
     return s[2:]
 }
 
-expr_to_string :: proc(expr: ^Expr, indent: string) -> (s: string) {
+expr_to_string :: proc(expr: ^Expr, indent: string, nl: bool = true) -> (s: string) {
     if expr == nil { return }
 
     s0 := indent
@@ -87,7 +90,10 @@ expr_to_string :: proc(expr: ^Expr, indent: string) -> (s: string) {
     switch e in expr {
         case Sequence:
             s0 = ""
-            s = fmt.aprintf("%s;\n%s", expr_to_string(e.e1, indent), expr_to_string(e.e2, indent))
+            s = fmt.aprintf("%s;\n%s", expr_to_string(e.e1, indent, nl), expr_to_string(e.e2, indent, nl))
+            if !nl {
+                s = fmt.aprintf("%s; %s", expr_to_string(e.e1, indent, nl), expr_to_string(e.e2, indent, nl))
+            }
         case Type_Ascription:
             s = fmt.aprintf("%s : %s", expr_to_string(e.e1, ""), pretype_to_string(e.pt))
         case Fun_Decl:
@@ -126,9 +132,9 @@ expr_to_string :: proc(expr: ^Expr, indent: string) -> (s: string) {
         case Value:
             s = fmt.aprintf("%s", value_to_string(e.v))
         case Parens:
-            s = fmt.aprintf("(%s)", expr_to_string(e.e1, ""))
+            s = fmt.aprintf("(%s)", expr_to_string(e.e1, "", false))
         case Scope:
-            s = fmt.aprintf("{{ %s }}", expr_to_string(e.e1, ""))
+            s = fmt.aprintf("{{ %s }}", expr_to_string(e.e1, "", false))
     }
     return fmt.aprintf("%s%s", s0, s)
 }
@@ -149,6 +155,18 @@ labels_to_string :: proc(labels: map[string]^Pretype) -> (s: string) {
     return s[2:]
 }
 
+pretype_fields_to_string :: proc(labels: map[string]^Field_Value) -> (s: string) {
+    for k,v in labels {
+        if v.is_mut {
+            s = fmt.aprintf("%s; %v : %v", s, k, pretype_to_string(v.pt))
+        } else {
+            s = fmt.aprintf("%s; immutable %v : %v", s, k, pretype_to_string(v.pt))
+        }
+    }
+    if len(labels) == 0 { return "" }
+    return s[2:]
+}
+
 pretype_to_string :: proc(pretype: ^Pretype) -> (s: string) {
     if pretype == nil { return }
 
@@ -158,7 +176,7 @@ pretype_to_string :: proc(pretype: ^Pretype) -> (s: string) {
         case Fun_Sign:
             s = fmt.aprintf("(%s) -> %s", types_to_string(pt.params), pretype_to_string(pt.res))
         case Struct_Type:
-            s = fmt.aprintf("struct {{ %s }}", labels_to_string(pt.fields))
+            s = fmt.aprintf("struct {{ %s }}", pretype_fields_to_string(pt.fields))
         case Union_Type:
             s = fmt.aprintf("union {{ %s }}", labels_to_string(pt.labels))
     }

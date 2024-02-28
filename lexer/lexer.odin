@@ -68,11 +68,15 @@ Token_Kind :: enum {
     If,
     Then,
     Else,
+    S_And,
+    S_Or,
     And,
+    Xor,
     Or,
     Not,
     Sqrt,
     Mutable,
+    Immutable,
     Min,
     Max,
     Union,
@@ -167,8 +171,11 @@ next_token :: proc(l: ^Lexer) -> (tk: Token) {
             case "if":          tk.kind = .If
             case "then":        tk.kind = .Then
             case "else":        tk.kind = .Else
+            case "sand":        tk.kind = .S_And
+            case "sor":         tk.kind = .S_Or
             case "and":         tk.kind = .And
             case "or":          tk.kind = .Or
+            case "xor":         tk.kind = .Xor
             case "not":         tk.kind = .Not
             case "sqrt":        tk.kind = .Sqrt
             case "readInt":     tk.kind = .Read_Int
@@ -177,6 +184,7 @@ next_token :: proc(l: ^Lexer) -> (tk: Token) {
             case "println":     tk.kind = .PrintLn
             case "assert":      tk.kind = .Assert
             case "mutable":     tk.kind = .Mutable
+            case "immutable":   tk.kind = .Immutable
             case "min":         tk.kind = .Min
             case "max":         tk.kind = .Max
             case "union":       tk.kind = .Union

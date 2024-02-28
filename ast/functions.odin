@@ -1,5 +1,7 @@
 package ast
 
+import "core:fmt"
+
 single_make :: proc(s: string) -> (pt: ^Pretype) {
     pt = new(Pretype)
     pt^ = Single { s }
@@ -18,7 +20,7 @@ union_type_make :: proc(labels: map[string]^Pretype) -> (pt: ^Pretype) {
     return
 }
 
-struct_type_make :: proc(fields: map[string]^Pretype) -> (pt: ^Pretype) {
+struct_type_make :: proc(fields: map[string]^Field_Value) -> (pt: ^Pretype) {
     pt = new(Pretype)
     pt^ = Struct_Type { fields }
     return
@@ -135,5 +137,55 @@ parens_make :: proc (e1: ^Expr) -> (expr: ^Expr) {
 scope_make :: proc (e1: ^Expr) -> (expr: ^Expr) {
     expr  = new(Expr)
     expr^ = Scope { e1 }
+    return
+}
+
+expr_subst :: proc(var: string, new_expr: ^Expr, expr: ^Expr) {
+    if expr == nil || new_expr == nil { return }
+
+    switch e in expr {
+	case Sequence:
+	    expr_subst(var, new_expr, e.e1)
+	    expr_subst(var, new_expr, e.e2)
+	case Type_Ascription:
+	    expr_subst(var, new_expr, e.e1)
+	case Let:
+	    expr_subst(var, new_expr, e.e1)
+	    if e.x != var { expr_subst(var, new_expr, e.e2) }
+	case Fun_Decl:
+	    for k,v in e.params { if k == var { return } }
+	    expr_subst(var, new_expr, e.e1)
+	case Fun_App:
+	    expr_subst(var, new_expr, e.fun)
+	    for p in e.params { expr_subst(var, new_expr, p) }
+	case Match_Case:
+	case Union_Constructor:
+	case Struct:
+	    for _,v in e.fields { expr_subst(var, new_expr, v) }
+	case While:
+	    expr_subst(var, new_expr, e.e1)
+	    expr_subst(var, new_expr, e.e2)
+	case Type_Decl:
+	    expr_subst(var, new_expr, e.e1)
+	case If_Else:
+	    expr_subst(var, new_expr, e.e1)
+	    expr_subst(var, new_expr, e.e2)
+	    expr_subst(var, new_expr, e.e3)
+	case Assignment:
+	    expr_subst(var, new_expr, e.e1)
+	    expr_subst(var, new_expr, e.e2)
+	case Unary_Fun:
+	    expr_subst(var, new_expr, e.e1)
+	case Binary_Fun:
+	    expr_subst(var, new_expr, e.e1)
+	    expr_subst(var, new_expr, e.e2)
+	case Variable:		    if e.x == var { expr^ = new_expr^ }
+	case Field_Access:
+	    vr, ok := new_expr.(Variable)
+	    if ok && e.x == var { e.x = vr.x }
+	case Value:
+	case Parens:		    expr_subst(var, new_expr, e.e1)
+	case Scope:		    expr_subst(var, new_expr, e.e1)
+    }
     return
 }

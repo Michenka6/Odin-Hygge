@@ -1,74 +1,19 @@
-// Three type aliases for structure types
-
-type Shape = struct { name: string;
-
-                      area: float };
-
-type Circle = struct { name: string;
-
-                       area: float;
-
-                       radius: float };
-
-type Square = struct { name: string;
-
-                       area: float;
-
-                       side: float };
-
-
-// Function that takes a structure as argument
-
-fun displayShape(shape: Shape): unit = {
-
-    print("Name: ");   print(shape.name);
-
-    print("; area: "); println(shape.area)
-
+if x then x else x;
+x.x;
+fun f(x: int, y: float): unit = println(x);
+type MuInt = x;
+while x < 11 do {
+    x <- 11
 };
-
-
-// Structure constructors
-
-let c: Circle = struct { name = "Circle";
-
-                         area = 10.0f * 10.0f * 3.14f;
-
-                         radius = 10.0f };
-
-let s: Square = struct { name = "Square";
-
-                         area = 2.0f * 2.0f;
-
-                         side = 2.0f };
-
-let r: struct {name: string; area: float} =
-
-    struct { name = "Rectangle";
-
-             area = 3.0f * 4.0f;
-
-             width = 3.0f;
-
-             height = 4.0f };
-
-// Function calls with structures as arguments.  Note: the structures
-
-// passed as arguments have more fields than required by the function.
-
-displayShape(c);
-
-displayShape(s);
-
-displayShape(r);
-
-
-// Assignment to structure fields
-
-c.area <- s.area <- r.area <- 0.0f;
-
-assert(c.area = s.area);
-
-assert(s.area = r.area);
-
-assert(r.area = 0.0f)
+struct { x = 21 + x; y = 13.22f * x };
+let y: string = x - 1;
+let x: string = x + 12;
+let y: string = x - x;
+match x with {
+    Some{x} -> 12;
+    None{_} -> 11
+};
+x(21);
+assert((x:int) + 12);
+println(x);
+print(x)

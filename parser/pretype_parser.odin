@@ -12,6 +12,7 @@ import "core:fmt"
                 |   PRETYPE "," TYPES
 
     FIELD_TYPES :=
+                |   "immutable" FIELD ":" PRETYPE 
                 |   FIELD ":" PRETYPE 
                 |   FIELD ":" PRETYPE ";" FIELD_TYPES
 
@@ -71,6 +72,33 @@ parse_labels :: proc(p: ^Parser, labels: ^map[string]^AST.Pretype) -> (ok: bool)
     return true 
 }
 
+pretype_parse_fields :: proc(p: ^Parser, fields: ^map[string]^AST.Field_Value) -> (ok: bool) {
+    tk := get_tk(p) or_return
+    if tk.kind == .Right_Cur { return true }
+    is_mut := true
+    if tk.kind == .Immutable { is_mut = false; p.tk_advanced += 1 }
+    tk = get_tk(p) or_return
+
+    field := parse_label(p) or_return
+
+    tk = get_tk(p) or_return
+    if tk.kind != .Colon { p.tk_advanced -= 1; return }
+    p.tk_advanced += 1
+
+    pt := parse_pretype(p) or_return
+
+    fv := new(AST.Field_Value)
+    fv^ = AST.Field_Value { pt, is_mut }
+    fields[field] = fv
+
+    tk = get_tk(p) or_return
+    if tk.kind == .Semi_Colon {
+        p.tk_advanced += 1
+        return pretype_parse_fields(p, fields)
+    }
+    return true 
+}
+
 parse_struct_type :: proc(p: ^Parser) -> (pt: ^AST.Pretype, ok: bool) {
     tk := get_tk(p) or_return
     if tk.kind != .Struct { return }
@@ -80,8 +108,8 @@ parse_struct_type :: proc(p: ^Parser) -> (pt: ^AST.Pretype, ok: bool) {
     if tk.kind != .Left_Cur { p.tk_advanced -= 1; return }
     p.tk_advanced += 1
 
-    fields := make(map[string]^AST.Pretype)
-    parse_labels(p, &fields) or_return
+    fields := make(map[string]^AST.Field_Value)
+    pretype_parse_fields(p, &fields) or_return
 
     tk = get_tk(p) or_return
     if tk.kind != .Right_Cur { p.tk_advanced = p.cursor; return }
