@@ -37,6 +37,8 @@
 - [ ] Implement ANF Translation for some extensions
 ***
 - [ ] Implement Some Peephole Optimizations
+***
+- [ ] Stricter typing of Hygger, making it more similar to F#
 
 # MEDIUM
 - [x] $e_{1}\ sand\ e_{2}$ short-circuit and

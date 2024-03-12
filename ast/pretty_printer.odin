@@ -37,14 +37,10 @@ binary_to_string :: proc(expr: Binary_Fun) -> (s: string) {
         case .Max:              s = fmt.aprintf("max(%s, %s)", expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Min:              s = fmt.aprintf("min(%s, %s)", expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Less:             s = fmt.aprintf("%s < %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
-        case .Greater:          s = fmt.aprintf("%s > %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Equals:           s = fmt.aprintf("%s = %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Less_Equals:      s = fmt.aprintf("%s <= %s",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
-        case .Greater_Equals:   s = fmt.aprintf("%s >= %s",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Xor:              s = fmt.aprintf("(%s xor %s)", expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Or:               s = fmt.aprintf("(%s or %s)",  expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
-        case .S_Or:             s = fmt.aprintf("(%s sor %s)", expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
-        case .S_And:            s = fmt.aprintf("%s sand %s",  expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .And:              s = fmt.aprintf("%s and %s",   expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
     }
     return
@@ -118,7 +114,7 @@ expr_to_string :: proc(expr: ^Expr, indent: string, nl: bool = true) -> (s: stri
                 s = fmt.aprintf("let %s : %s = %s;\n%s", e.x, pretype_to_string(e.pt), expr_to_string(e.e1, ""), expr_to_string(e.e2, indent))
             }
         case If_Else:
-            s = fmt.aprintf("if %s\n  then %s\n  else %s", expr_to_string(e.e1, indent), expr_to_string(e.e2, indent), expr_to_string(e.e3, indent))
+            s = fmt.aprintf("if %s then {{ %s }} else {{ %s }}", expr_to_string(e.e1, indent), expr_to_string(e.e2, indent), expr_to_string(e.e3, indent))
         case Assignment:
             s = fmt.aprintf("%s <- %s", expr_to_string(e.e1, ""), expr_to_string(e.e2, ""))
         case Unary_Fun:

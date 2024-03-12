@@ -36,11 +36,11 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
             |   "(" E ")"
             |   "{" E "}"
         E2  :=
-            |   E1 "<" "-" E
-            |   E1 "-" "=" E
-            |   E1 "*" "=" E
-            |   E1 "/" "=" E
-            |   E1 "%" "=" E
+            |   E1 "<" "-" E-minus
+            |   E1 "-" "=" E-minus
+            |   E1 "*" "=" E-minus
+            |   E1 "/" "=" E-minus
+            |   E1 "%" "=" E-minus
             |   E1 "%" E2
             |   E1 "/" E2
             |   E1 "*" E2
@@ -79,7 +79,7 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
             |   "assert"    "(" E ")"
             |   E8
         E11 :=
-            |   "if" E8 "then" E "else" E-1
+            |   "if" E "then" E "else" E-1
             |   E10
         E12 :=
             |   "let" "mutable" VARIABLE ":" PRETYPE "=" E-1 ";" E
@@ -118,7 +118,7 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
         E   :=  E23 | E23 ";" E
     */
 
-PARSER_TRACING :: true
+PARSER_TRACING :: false
 
 parse_E :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     when PARSER_TRACING { fmt.println("PARSING RULE E")}
@@ -589,7 +589,7 @@ parse_E11 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
 
     if tk.kind == .If {
         p.tk_advanced += 1
-        e1, e1_parsed := parse_E8(p)
+        e1, e1_parsed := parse_E(p)
         if !e1_parsed { p.tk_advanced -= 1; return }
 
         tk = get_tk(p) or_return
@@ -704,16 +704,16 @@ parse_E8 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
 
     if tk.kind == .S_And {
         p.tk_advanced += 1
-        e2, e2_parsed := parse_E7(p)
+        e2, e2_parsed := parse_E8(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
 
-        expr = AST.binary_make(.S_And, e1, e2)
+        expr = AST.if_else_make(e1, e2, AST.value_make(.Bool, false))
         return expr, true
     }
 
     if tk.kind == .And {
         p.tk_advanced += 1
-        e2, e2_parsed := parse_E7(p)
+        e2, e2_parsed := parse_E8(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
 
         expr = AST.binary_make(.And, e1, e2)
@@ -743,7 +743,7 @@ parse_E7 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         e2, e2_parsed := parse_E7(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
 
-        expr = AST.binary_make(.S_Or, e1, e2)
+        expr = AST.if_else_make(e1, AST.value_make(.Bool, true), e2)
         return expr, true
     }
 
@@ -791,24 +791,31 @@ parse_E5 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
 
         e2, e2_parsed := parse_E4(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
-        
+
         expr = AST.binary_make(op, e1, e2)
         return expr, true
     }
 
     if tk.kind == .Greater {
-        op : AST.Binary_Op = .Greater
+        gr_eq := false
         p.tk_advanced += 1
 
         tk, got_tk = get_tk(p)
         if got_tk && tk.kind == .Eq {
             p.tk_advanced += 1
-            op = .Greater_Equals
+            gr_eq = true
         }
 
         e2, e2_parsed := parse_E4(p)
         if !e2_parsed { p.tk_advanced -= 1; return }
-        expr = AST.binary_make(op, e1, e2)
+
+        if gr_eq {
+            ee := AST.binary_make(.Less, e1, e2)
+            expr = AST.unary_make(.Not, ee)
+            return expr, true
+        }
+        expr = AST.binary_make(.Less_Equals, e1, e2)
+        expr = AST.unary_make(.Not, expr)
         return expr, true
     }
 
@@ -928,7 +935,7 @@ parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         if !got_tk || tk.kind != .Minus { p.tk_advanced -= 1; return e1, true }
         p.tk_advanced += 1
 
-        e2 := parse_E(p) or_return
+        e2 := parse_E_minus(p) or_return
 
         expr = AST.assignment_make(e1, e2)
         return expr, true
@@ -940,7 +947,7 @@ parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         if !got_tk || tk.kind != .Eq { p.tk_advanced -= 1; return e1, true }
         p.tk_advanced += 1
 
-        e1_e2 := parse_E(p) or_return
+        e1_e2 := parse_E_minus(p) or_return
 
         e2 := AST.binary_make(.Plus, e1, e1_e2)
 
@@ -954,7 +961,7 @@ parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         if !got_tk || tk.kind != .Eq { p.tk_advanced -= 1; return e1, true }
         p.tk_advanced += 1
 
-        e1_e2 := parse_E(p) or_return
+        e1_e2 := parse_E_minus(p) or_return
 
         e2 := AST.binary_make(.Minus, e1, e1_e2)
         expr = AST.assignment_make(e1, e2)
@@ -972,7 +979,7 @@ parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         }
         p.tk_advanced += 1
 
-        e1_e2 := parse_E(p) or_return
+        e1_e2 := parse_E_minus(p) or_return
 
         e2 := AST.binary_make(.Times, e1, e1_e2)
         expr = AST.assignment_make(e1, e2)
@@ -990,7 +997,7 @@ parse_E2 :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         }
         p.tk_advanced += 1
 
-        e1_e2 := parse_E(p) or_return
+        e1_e2 := parse_E_minus(p) or_return
 
         e2 := AST.binary_make(.Divide, e1, e1_e2)
         expr = AST.assignment_make(e1, e2)

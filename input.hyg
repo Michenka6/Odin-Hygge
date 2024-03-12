@@ -1,19 +1,26 @@
-if x then x else x;
-x.x;
-fun f(x: int, y: float): unit = println(x);
-type MuInt = x;
-while x < 11 do {
-    x <- 11
+
+let x : struct { x : int; y : float; z : string } = struct { x = 12; y = 123.12f; z = "shh" };
+print("hh")
+
+
+fun add(x: int, y: int): (int, int) -> int = x + y;
+add(12 , 12)
+
+let x : int = 1; // Variable declaration
+type MyInt = int; // Type declaration
+
+type YourInt = MyInt;
+
+let y: YourInt = { // Variable declaration with type annotation
+    println("Initialising y");
+    2: MyInt // Type ascription
 };
-struct { x = 21 + x; y = 13.22f * x };
-let y: string = x - 1;
-let x: string = x + 12;
-let y: string = x - x;
-match x with {
-    Some{x} -> 12;
-    None{_} -> 11
-};
-x(21);
-assert((x:int) + 12);
-println(x);
-print(x)
+
+
+
+if x < y then println("x is smaller than y")
+         else println("x is not smaller than y");
+
+print("The result of x + y is: ");
+println(x + y);
+assert(x + y < 42) // Assertion

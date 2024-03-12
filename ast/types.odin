@@ -142,6 +142,16 @@ Unary_Fun :: struct {
 }
 
 Binary_Op :: enum {
+    Xor,
+    // S_Or,
+    // S_And,
+    Or,
+    And,
+    //
+    Less,
+    Less_Equals,
+    Equals,
+    //
     Modulus,
     Divide,
     Times,
@@ -149,16 +159,6 @@ Binary_Op :: enum {
     Minus,
     Max,
     Min,
-    Less,
-    Greater,
-    Less_Equals,
-    Greater_Equals,
-    Equals,
-    Xor,
-    S_Or,
-    S_And,
-    Or,
-    And,
 }
 
 Binary_Fun :: struct {

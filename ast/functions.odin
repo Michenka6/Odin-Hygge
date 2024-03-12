@@ -189,3 +189,175 @@ expr_subst :: proc(var: string, new_expr: ^Expr, expr: ^Expr) {
     }
     return
 }
+
+// propogate_pretype_subst :: proc(var: string, new_pt: ^Pretype, expr: ^Expr) {
+//     if expr == nil { return }
+//
+//     switch e in expr {
+// 	case Sequence:
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	    propogate_pretype_subst(var, new_pt, e.e2)
+// 	case Type_Ascription:
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	    pretype_subst(var, new_pt, e.pt)
+// 	case Let:
+// 	    pretype_subst(var, new_pt, e.pt)
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	    propogate_pretype_subst(var, new_pt, e.e2)
+// 	case Fun_Decl:
+// 	    for k,v in e.params { pretype_subst(var, new_pt, v) }
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	case Fun_App:
+// 	    propogate_pretype_subst(var, new_pt, e.fun)
+// 	    for p in e.params { propogate_pretype_subst(var, new_pt, p) }
+// 	case Match_Case:
+// 	case Union_Constructor:
+// 	case Struct:
+// 	    for _,v in e.fields { propogate_pretype_subst(var, new_pt, v) }
+// 	case While:
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	    propogate_pretype_subst(var, new_pt, e.e2)
+// 	case Type_Decl:
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	    propogate_pretype_subst(e.x, e.pt, e.e1)
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	    expr^ = e.e1^
+// 	case If_Else:
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	    propogate_pretype_subst(var, new_pt, e.e2)
+// 	    propogate_pretype_subst(var, new_pt, e.e3)
+// 	case Assignment:
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	    propogate_pretype_subst(var, new_pt, e.e2)
+// 	case Unary_Fun:
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	case Binary_Fun:
+// 	    propogate_pretype_subst(var, new_pt, e.e1)
+// 	    propogate_pretype_subst(var, new_pt, e.e2)
+// 	case Variable:
+// 	case Field_Access:
+// 	case Value:
+// 	case Parens:		    propogate_pretype_subst(var, new_pt, e.e1)
+// 	case Scope:		    propogate_pretype_subst(var, new_pt, e.e1)
+//     }
+//     return
+// }
+//
+// pretype_subst :: proc(t: string, new_pt: ^Pretype, pt: ^Pretype) {
+//     if pt == nil || new_pt == nil { return }
+//     switch p in pt {
+//         case Single:
+// 	    if p.t == t { pt^ = pretype_clone(new_pt)^ }
+//         case Fun_Sign:
+// 	    for param in p.params { pretype_subst(t, new_pt, param) }
+// 	    pretype_subst(t, new_pt, p.res)
+//         case Struct_Type:
+// 	    for k,v in p.fields { pretype_subst(t, new_pt, v.pt) }
+//         case Union_Type:
+// 	    for k,v in p.labels { pretype_subst(t, new_pt, v) }
+//     }
+// }
+
+pretype_clone :: proc(pt: ^Pretype) -> (new_pt: ^Pretype) {
+    if pt == nil { return }
+
+    new_pt = new(Pretype)
+    switch p in pt {
+	case Single:
+	    new_pt^ = Single { p.t }
+        case Fun_Sign:
+	    params := make([dynamic]^Pretype)
+	    for param in p.params { append_elem(&params, pretype_clone(param)) }
+	    res := pretype_clone(p.res)
+	    new_pt^ = Fun_Sign { params, res }
+	case Struct_Type:
+	    fields := make(map[string]^Field_Value)
+	    for k,v in p.fields {
+		field_value := new(Field_Value)
+		field_value^ = Field_Value { pretype_clone(v.pt), v.is_mut }
+		fields[k] = field_value
+	    }
+	    new_pt^ = Struct_Type { fields }
+        case Union_Type:
+	    labels := make(map[string]^Pretype)
+	    for k,v in p.labels { labels[k] = pretype_clone(v) }
+	    new_pt^ = Union_Type { labels }
+    }
+    return
+}
+
+expr_clone :: proc(expr: ^Expr) -> (new_expr: ^Expr) {
+    if expr == nil { return }
+    switch e in expr {
+	case Sequence:
+	    e1 := expr_clone(e.e1)
+	    e2 := expr_clone(e.e2)
+	    new_expr = sequence_make(e1, e2)
+	case Type_Ascription:
+	    e1 := expr_clone(e.e1)
+	    pt := pretype_clone(e.pt)
+	    new_expr = type_ascription_make(e1, pt)
+	case Let:
+	    e1 := expr_clone(e.e1)
+	    e2 := expr_clone(e.e2)
+	    pt := pretype_clone(e.pt)
+	    new_expr = let_make(e.is_mut, e.x, pt, e1, e2)
+	case Fun_Decl:
+	    params := make(map[string]^Pretype)
+	    for k,v in e.params { params[k] = pretype_clone(v) }
+	    e1 := expr_clone(e.e1)
+	    new_expr = fun_decl_make(params, e1)
+	case Fun_App:
+	    fun := expr_clone(e.fun)
+	    params := make([dynamic]^Expr)
+	    for param in e.params { append_elem(&params, expr_clone(param)) }
+	    new_expr = fun_app_make(fun, params)
+	case Match_Case:
+	    e1 := expr_clone(e.e1)
+	    patterns := make(map[Match_Pattern]^Expr)
+	    for k,v in e.patterns { patterns[k] = expr_clone(v) }
+	    new_expr = match_cases_make(e1, patterns)
+	case Union_Constructor:
+	    e1 := expr_clone(e.e1)
+	    new_expr = union_constructor_make(e.label, e1)
+	case Struct:
+	    fields := make(map[string]^Expr)
+	    for k,v in e.fields { fields[k] = expr_clone(v) }
+	    new_expr = struct_make(fields)
+	case While:
+	    e1 := expr_clone(e.e1)
+	    e2 := expr_clone(e.e2)
+	    new_expr = while_make(e1, e2)
+	case Type_Decl:
+	    e1 := expr_clone(e.e1)
+	    pt := pretype_clone(e.pt)
+	    new_expr = type_decl_make(e.x, pt, e1)
+	case If_Else:
+	    e1 := expr_clone(e.e1)
+	    e2 := expr_clone(e.e2)
+	    e3 := expr_clone(e.e3)
+	    new_expr = if_else_make(e1, e2, e3)
+	case Assignment:
+	    e1 := expr_clone(e.e1)
+	    e2 := expr_clone(e.e2)
+	    new_expr = assignment_make(e1, e2)
+	case Unary_Fun:
+	    e1 := expr_clone(e.e1)
+	    new_expr = unary_make(e.op, e1)
+	case Binary_Fun:
+	    e1 := expr_clone(e.e1)
+	    e2 := expr_clone(e.e2)
+	    new_expr = binary_make(e.op, e1, e2)
+	case Variable:
+	    new_expr = variable_make(e.x)
+	case Field_Access:
+	    new_expr = field_access_make(e.x, e.field)
+	case Value:
+	    new_expr = value_make(e.type, e.v)
+	case Parens:
+	    new_expr = parens_make(e.e1)
+	case Scope:
+	    new_expr = scope_make(e.e1)
+    }
+    return
+}
