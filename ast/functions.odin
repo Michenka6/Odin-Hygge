@@ -26,124 +26,130 @@ struct_type_make :: proc(fields: map[string]^Field_Value) -> (pt: ^Pretype) {
     return
 }
 
+expr_make :: proc() -> (expr: ^Expr) {
+    expr = new(Expr)
+    expr.variance = new(Expr_Variance)
+    return expr
+}
+
 sequence_make :: proc(e1: ^Expr, e2: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Sequence { e1, e2 }
+    expr  = expr_make()
+    expr.variance^ = Sequence { e1, e2 }
     return
 }
 
 type_ascription_make :: proc(e1: ^Expr, pt: ^Pretype) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Type_Ascription { e1, pt }
+    expr  = expr_make()
+    expr.variance^ = Type_Ascription { e1, pt }
     return
 }
 
 fun_decl_make :: proc(params: map[string]^Pretype, e1: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Fun_Decl { params, e1 }
+    expr  = expr_make()
+    expr.variance^ = Fun_Decl { params, e1 }
     return
 }
 
-fun_app_make :: proc(fun: ^Expr, params: [dynamic]^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Fun_App { fun, params }
+fun_app_make :: proc(fun: string, params: [dynamic]^Expr) -> (expr: ^Expr) {
+    expr  = expr_make()
+    expr.variance^ = Fun_App { fun, params }
     return
 }
 
 match_cases_make :: proc(e1: ^Expr, patterns: map[Match_Pattern]^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Match_Case { e1, patterns }
+    expr  = expr_make()
+    expr.variance^ = Match_Case { e1, patterns }
     return
 }
 
 union_constructor_make :: proc(label: string, e1: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Union_Constructor { label, e1 }
+    expr  = expr_make()
+    expr.variance^ = Union_Constructor { label, e1 }
     return
 }
 
 struct_make :: proc(fields: map[string]^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Struct { fields }
+    expr  = expr_make()
+    expr.variance^ = Struct { fields }
     return
 }
 
 while_make :: proc(e1: ^Expr, e2: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = While { e1, e2 }
+    expr  = expr_make()
+    expr.variance^ = While { e1, e2 }
     return
 }
 
 type_decl_make :: proc(x: string, pt: ^Pretype, e1: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Type_Decl { x, pt, e1 }
+    expr  = expr_make()
+    expr.variance^ = Type_Decl { x, pt, e1 }
     return
 }
 
 let_make :: proc(is_mut: bool, x: string, pt: ^Pretype, e1: ^Expr, e2: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Let { is_mut, x, pt, e1, e2 }
+    expr  = expr_make()
+    expr.variance^ = Let { is_mut, x, pt, e1, e2 }
     return
 }
 
 if_else_make :: proc(e1: ^Expr, e2: ^Expr, e3: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = If_Else { e1, e2, e3 }
+    expr  = expr_make()
+    expr.variance^ = If_Else { e1, e2, e3 }
     return
 }
 
 assignment_make :: proc(e1: ^Expr, e2: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Assignment { e1, e2 }
+    expr  = expr_make()
+    expr.variance^ = Assignment { e1, e2 }
     return
 }
 
 unary_make :: proc(op: Unary_Op, e1: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Unary_Fun { op, e1 }
+    expr  = expr_make()
+    expr.variance^ = Unary_Fun { op, e1 }
     return
 }
 
 binary_make :: proc(op: Binary_Op, e1: ^Expr, e2: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Binary_Fun { op, e1, e2 }
+    expr  = expr_make()
+    expr.variance^ = Binary_Fun { op, e1, e2 }
     return
 }
 
 variable_make :: proc(x: string) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Variable { x }
+    expr  = expr_make()
+    expr.variance^ = Variable { x }
     return
 }
 
-field_access_make :: proc(x: string, field: string) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Field_Access { x, field }
+field_access_make :: proc(e1: ^Expr, field: string) -> (expr: ^Expr) {
+    expr  = expr_make()
+    expr.variance^ = Field_Access { e1, field }
     return
 }
 
 value_make :: proc (type: Value_Type, v: Value_Payload) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Value { type, v }
+    expr  = expr_make()
+    expr.variance^ = Value { type, v }
     return
 }
 
 parens_make :: proc (e1: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Parens { e1 }
+    expr  = expr_make()
+    expr.variance^ = Parens { e1 }
     return
 }
 
 scope_make :: proc (e1: ^Expr) -> (expr: ^Expr) {
-    expr  = new(Expr)
-    expr^ = Scope { e1 }
+    expr  = expr_make()
+    expr.variance^ = Scope { e1 }
     return
 }
 
 expr_subst :: proc(var: string, new_expr: ^Expr, expr: ^Expr) {
     if expr == nil || new_expr == nil { return }
 
-    switch e in expr {
+    switch e in expr.variance {
 	case Sequence:
 	    expr_subst(var, new_expr, e.e1)
 	    expr_subst(var, new_expr, e.e2)
@@ -156,7 +162,7 @@ expr_subst :: proc(var: string, new_expr: ^Expr, expr: ^Expr) {
 	    for k,v in e.params { if k == var { return } }
 	    expr_subst(var, new_expr, e.e1)
 	case Fun_App:
-	    expr_subst(var, new_expr, e.fun)
+	    // if e.fun == var { e.fun = var }
 	    for p in e.params { expr_subst(var, new_expr, p) }
 	case Match_Case:
 	case Union_Constructor:
@@ -181,8 +187,7 @@ expr_subst :: proc(var: string, new_expr: ^Expr, expr: ^Expr) {
 	    expr_subst(var, new_expr, e.e2)
 	case Variable:		    if e.x == var { expr^ = new_expr^ }
 	case Field_Access:
-	    vr, ok := new_expr.(Variable)
-	    if ok && e.x == var { e.x = vr.x }
+	    expr_subst(var, new_expr, e.e1)
 	case Value:
 	case Parens:		    expr_subst(var, new_expr, e.e1)
 	case Scope:		    expr_subst(var, new_expr, e.e1)
@@ -221,7 +226,7 @@ expr_subst :: proc(var: string, new_expr: ^Expr, expr: ^Expr) {
 // 	    propogate_pretype_subst(var, new_pt, e.e1)
 // 	    propogate_pretype_subst(e.x, e.pt, e.e1)
 // 	    propogate_pretype_subst(var, new_pt, e.e1)
-// 	    expr^ = e.e1^
+// 	    expr.variance^ = e.e1^
 // 	case If_Else:
 // 	    propogate_pretype_subst(var, new_pt, e.e1)
 // 	    propogate_pretype_subst(var, new_pt, e.e2)
@@ -288,7 +293,7 @@ pretype_clone :: proc(pt: ^Pretype) -> (new_pt: ^Pretype) {
 
 expr_clone :: proc(expr: ^Expr) -> (new_expr: ^Expr) {
     if expr == nil { return }
-    switch e in expr {
+    switch e in expr.variance {
 	case Sequence:
 	    e1 := expr_clone(e.e1)
 	    e2 := expr_clone(e.e2)
@@ -308,10 +313,9 @@ expr_clone :: proc(expr: ^Expr) -> (new_expr: ^Expr) {
 	    e1 := expr_clone(e.e1)
 	    new_expr = fun_decl_make(params, e1)
 	case Fun_App:
-	    fun := expr_clone(e.fun)
 	    params := make([dynamic]^Expr)
 	    for param in e.params { append_elem(&params, expr_clone(param)) }
-	    new_expr = fun_app_make(fun, params)
+	    new_expr = fun_app_make(e.fun, params)
 	case Match_Case:
 	    e1 := expr_clone(e.e1)
 	    patterns := make(map[Match_Pattern]^Expr)
@@ -351,7 +355,7 @@ expr_clone :: proc(expr: ^Expr) -> (new_expr: ^Expr) {
 	case Variable:
 	    new_expr = variable_make(e.x)
 	case Field_Access:
-	    new_expr = field_access_make(e.x, e.field)
+	    new_expr = field_access_make(e.e1, e.field)
 	case Value:
 	    new_expr = value_make(e.type, e.v)
 	case Parens:

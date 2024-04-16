@@ -29,7 +29,7 @@ unary_to_string :: proc(expr: Unary_Fun) -> (s: string) {
 
 binary_to_string :: proc(expr: Binary_Fun) -> (s: string) {
     switch expr.op {
-        case .Modulus:          s = fmt.aprintf("%s %% %s",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Modulus:          s = fmt.aprintf("(%s %% %s)",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Divide:           s = fmt.aprintf("(%s / %s)",   expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Times:            s = fmt.aprintf("(%s * %s)",   expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Minus:            s = fmt.aprintf("%s - %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
@@ -39,6 +39,8 @@ binary_to_string :: proc(expr: Binary_Fun) -> (s: string) {
         case .Less:             s = fmt.aprintf("%s < %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Equals:           s = fmt.aprintf("%s = %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Less_Equals:      s = fmt.aprintf("%s <= %s",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Greater:          s = fmt.aprintf("%s > %s",     expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
+        case .Greater_Equals:   s = fmt.aprintf("%s >= %s",    expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Xor:              s = fmt.aprintf("(%s xor %s)", expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .Or:               s = fmt.aprintf("(%s or %s)",  expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
         case .And:              s = fmt.aprintf("%s and %s",   expr_to_string(expr.e1, ""), expr_to_string(expr.e2, ""))
@@ -83,7 +85,7 @@ expr_to_string :: proc(expr: ^Expr, indent: string, nl: bool = true) -> (s: stri
 
     s0 := indent
 
-    switch e in expr {
+    switch e in expr.variance {
         case Sequence:
             s0 = ""
             s = fmt.aprintf("%s;\n%s", expr_to_string(e.e1, indent, nl), expr_to_string(e.e2, indent, nl))
@@ -95,7 +97,7 @@ expr_to_string :: proc(expr: ^Expr, indent: string, nl: bool = true) -> (s: stri
         case Fun_Decl:
             s = fmt.aprintf("fun (%s) -> %s", fun_decl_params_to_string(e.params), expr_to_string(e.e1, ""))
         case Fun_App:
-            s = fmt.aprintf("%s(%s)", expr_to_string(e.fun, ""), fun_app_params_to_string(e.params))
+            s = fmt.aprintf("%s(%s)", e.fun, fun_app_params_to_string(e.params))
         case Match_Case:
             s = fmt.aprintf("match %s with {{ %s }}", expr_to_string(e.e1, ""), match_patterns_to_string(e.patterns))
         case Union_Constructor:
@@ -114,17 +116,18 @@ expr_to_string :: proc(expr: ^Expr, indent: string, nl: bool = true) -> (s: stri
                 s = fmt.aprintf("let %s : %s = %s;\n%s", e.x, pretype_to_string(e.pt), expr_to_string(e.e1, ""), expr_to_string(e.e2, indent))
             }
         case If_Else:
-            s = fmt.aprintf("if %s then {{ %s }} else {{ %s }}", expr_to_string(e.e1, indent), expr_to_string(e.e2, indent), expr_to_string(e.e3, indent))
+            s = fmt.aprintf("(if %s then {{ %s }} else {{ %s }})", expr_to_string(e.e1, indent), expr_to_string(e.e2, indent), expr_to_string(e.e3, indent))
         case Assignment:
-            s = fmt.aprintf("%s <- %s", expr_to_string(e.e1, ""), expr_to_string(e.e2, ""))
+            s = fmt.aprintf("(%s <- %s)", expr_to_string(e.e1, ""), expr_to_string(e.e2, ""))
         case Unary_Fun:
+
             s = fmt.aprintf("%s", unary_to_string(e))
         case Binary_Fun:
             s = fmt.aprintf("%s", binary_to_string(e))
         case Variable:
             s = fmt.aprintf("%s", e.x)
         case Field_Access:
-            s = fmt.aprintf("%s.%s", e.x, e.field)
+            s = fmt.aprintf("(%s.%s)", expr_to_string(e.e1, ""), e.field)
         case Value:
             s = fmt.aprintf("%s", value_to_string(e.v))
         case Parens:
@@ -132,7 +135,24 @@ expr_to_string :: proc(expr: ^Expr, indent: string, nl: bool = true) -> (s: stri
         case Scope:
             s = fmt.aprintf("{{ %s }}", expr_to_string(e.e1, "", false))
     }
-    return fmt.aprintf("%s%s", s0, s)
+    s0 = fmt.aprintf("%s%s", s0, s)
+    // s0 = fmt.aprintf("[[ %s | %s ]]", s0, t_to_string(expr.type))
+    return s0
+}
+
+t_to_string :: proc(t: T) -> (s: string) {
+    switch t.kind {
+        case .Int: s = "int"
+        case .Bool: s = "bool"
+        case .Unit: s = "unit"
+        case .String: s = "string"
+        case .Float: s = "float"
+        case .Type_Var: s = "type_var"
+        case .Struct: s = "struct"
+        case .Union: s = "union"
+        case .Fun_Sign: s = "fun_sign"
+    }
+    return
 }
 
 types_to_string :: proc(params: [dynamic]^Pretype) -> (s: string) {

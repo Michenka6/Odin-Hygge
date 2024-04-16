@@ -34,7 +34,38 @@ Pretype :: union {
     Union_Type,
 }
 
-Expr :: union {
+T_Kind :: enum {
+    Int,
+    Bool,
+    Unit,
+    String,
+    Float,
+    Type_Var,
+    Struct,
+    Union,
+    Fun_Sign,
+}
+
+T :: struct {
+    x:       string,
+    kind:    T_Kind,
+    mapping: map[string]^T,
+    params:  [dynamic]^T,
+    res:    ^T,
+}
+
+Type_Env :: struct {
+    vars:       map[string]^T,
+    type_vars:  map[string]^T,
+    immutables: [dynamic]string, // Not implemented
+}
+
+Expr :: struct {
+    type:      T,
+    variance: ^Expr_Variance,
+}
+
+Expr_Variance :: union {
     Sequence,
     Type_Ascription,
     Fun_Decl,
@@ -67,7 +98,7 @@ Fun_Decl :: struct {
 }
 
 Fun_App :: struct {
-    fun:     ^Expr,
+    fun:      string,
     params:   [dynamic]^Expr,
 }
 
@@ -121,8 +152,8 @@ If_Else :: struct {
 }
 
 Assignment :: struct {
-    e1: ^Expr,
-    e2: ^Expr,
+    e1:    ^Expr,
+    e2:    ^Expr,
 }
 
 Unary_Op :: enum {
@@ -143,13 +174,13 @@ Unary_Fun :: struct {
 
 Binary_Op :: enum {
     Xor,
-    // S_Or,
-    // S_And,
     Or,
     And,
     //
     Less,
     Less_Equals,
+    Greater,
+    Greater_Equals,
     Equals,
     //
     Modulus,
@@ -172,8 +203,8 @@ Variable :: struct {
 }
 
 Field_Access :: struct {
-    x:     string,
-    field: string
+    e1:   ^Expr,
+    field: string,
 }
 
 Value_Type :: enum {
