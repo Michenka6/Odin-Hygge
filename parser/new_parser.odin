@@ -35,7 +35,7 @@ parser_make :: proc(l: ^Lexer.Lexer) -> (p: ^Parser) {
             |   "do" AE "while" B
             |   "for" G
             |   "struct" "{" H "}"
-            |   "match" I
+          //|   "match" I
             |   "fun" K
             |   B
             |   A
@@ -178,7 +178,11 @@ parse_E :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         eat_tk(p, .Left_Par) or_return
         e1 := parse_AE(p) or_return
         eat_tk(p, .Right_Par) or_return
-        expr = AST.unary_make(.Println, e1)
+        expr_e1 := AST.unary_make(.Print, e1)
+
+        expr_e2_e1 := AST.value_make(.String, "\\n")
+        expr_e2 := AST.unary_make(.Print, expr_e2_e1)
+        expr = AST.sequence_make(expr_e1, expr_e2)
         return expr, true
     }
     //|   "assert"    "(" AE ")"
@@ -225,7 +229,7 @@ parse_E :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         return expr, true
     }
     //|   "match" I
-    if eat_tk(p, .Match) { return parse_I(p) }
+    // if eat_tk(p, .Match) { return parse_I(p) }
     //|   "fun" K
     if eat_tk(p, .Fun) { return parse_K(p) }
     //|   B
@@ -315,36 +319,35 @@ parse_HH :: proc(p: ^Parser, fields: ^map[string]^AST.Expr) -> (ok: bool) {
     return true
 }
 
-parse_I :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
-    when PARSER_TRACING { fmt.println("PARSING I") }
-    //|   AE "with" "{" J "}"
-    e1 := parse_AE(p) or_return
-    eat_tk(p, .With) or_return
-    eat_tk(p, .Left_Cur) or_return
-    patterns := make(map[AST.Match_Pattern]^AST.Expr)
-    parse_J(p, &patterns) or_return
-    eat_tk(p, .Right_Cur) or_return
-    expr = AST.match_cases_make(e1, patterns)
-    return expr, true
-}
+// parse_I :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
+//     when PARSER_TRACING { fmt.println("PARSING I") }
+//     //|   AE "with" "{" J "}"
+//     e1 := parse_AE(p) or_return
+//     eat_tk(p, .With) or_return
+//     eat_tk(p, .Left_Cur) or_return
+//     patterns := make(map[AST.Match_Pattern]^AST.Expr)
+//     parse_J(p, &patterns) or_return
+//     eat_tk(p, .Right_Cur) or_return
+//     expr = AST.match_cases_make(e1, patterns)
+//     return expr, true
+// }
 
-
-parse_J :: proc(p: ^Parser, patterns: ^map[AST.Match_Pattern]^AST.Expr) -> (ok: bool) {
-    when PARSER_TRACING { fmt.println("PARSING J") }
-    //|   IDENT "{" IDENT "}" "-" ">" AE ( ";" J )*
-    label := parse_ident(p) or_return
-    eat_tk(p, .Left_Cur) or_return
-    var := parse_ident(p) or_return
-    eat_tk(p, .Right_Cur) or_return
-    eat_tk(p, .Minus) or_return
-    eat_tk(p, .Greater) or_return
-    expr := parse_AE(p) or_return
-    pattern := AST.Match_Pattern {label, var}
-    patterns[pattern] = expr
-
-    for eat_tk(p, .Semi_Colon) { parse_J(p, patterns) }
-    return true
-}
+// parse_J :: proc(p: ^Parser, patterns: ^map[AST.Match_Pattern]^AST.Expr) -> (ok: bool) {
+//     when PARSER_TRACING { fmt.println("PARSING J") }
+//     //|   IDENT "{" IDENT "}" "-" ">" AE ( ";" J )*
+//     label := parse_ident(p) or_return
+//     eat_tk(p, .Left_Cur) or_return
+//     var := parse_ident(p) or_return
+//     eat_tk(p, .Right_Cur) or_return
+//     eat_tk(p, .Minus) or_return
+//     eat_tk(p, .Greater) or_return
+//     expr := parse_AE(p) or_return
+//     pattern := AST.Match_Pattern {label, var}
+//     patterns[pattern] = expr
+//
+//     for eat_tk(p, .Semi_Colon) { parse_J(p, patterns) }
+//     return true
+// }
 
 parse_K :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
     when PARSER_TRACING { fmt.println("PARSING K") }
@@ -366,6 +369,7 @@ parse_K :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         eat_tk(p, .Left_Par) or_return
         params := make(map[string]^AST.Pretype)
         parse_L(p, &params) or_return
+
         eat_tk(p, .Right_Par) or_return
         eat_tk(p, .Colon) or_return
 
@@ -379,7 +383,18 @@ parse_K :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         eat_tk(p, .Semi_Colon) or_return
 
         e2 := parse_AE(p) or_return
+
+        pt_params := make(AST.Pretypes)
+        for k,v in params {
+            append_elem(&pt_params, v)
+        }
+        pt = AST.fun_sign_make(pt_params, pt)
+
         expr = AST.let_make(false, ident, pt, e1, e2)
+
+        for k,v in params {
+            AST.expr_ident_subst(k, fmt.aprintf("%s%s", ident, k), e1, ident)
+        }
         return expr, true
     }
 
@@ -522,7 +537,8 @@ parse_A :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         eat_tk(p, .Comma) or_return
         e2 := parse_A(p) or_return
         eat_tk(p, .Right_Par) or_return
-        expr = AST.binary_make(.Max, e1, e2)
+        cond := AST.binary_make(.Less, e1, e2)
+        expr = AST.if_else_make(cond, e2, e1)
         return expr, true
     }
 
@@ -532,17 +548,18 @@ parse_A :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         eat_tk(p, .Comma) or_return
         e2 := parse_A(p) or_return
         eat_tk(p, .Right_Par) or_return
-        expr = AST.binary_make(.Min, e1, e2)
+        cond := AST.binary_make(.Greater, e1, e2)
+        expr = AST.if_else_make(cond, e2, e1)
         return expr, true
     }
 
-    if eat_tk(p, .Sqrt) {
-        eat_tk(p, .Left_Par) or_return
-        e1 := parse_A(p) or_return
-        eat_tk(p, .Right_Par) or_return
-        expr = AST.unary_make(.Sqrt, e1)
-        return expr, true
-    }
+    // if eat_tk(p, .Sqrt) {
+    //     eat_tk(p, .Left_Par) or_return
+    //     e1 := parse_A(p) or_return
+    //     eat_tk(p, .Right_Par) or_return
+    //     expr = AST.unary_make(.Sqrt, e1)
+    //     return expr, true
+    // }
 
     expr = parse_MDT(p) or_return
     tk, got_tk = get_tk(p)
@@ -618,18 +635,18 @@ parse_V :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
         expr = AST.fun_app_make(ident, params)
     }
 
-    if got_tk && eat_tk(p, .Left_Cur) {
-        e1 := parse_AE(p) or_return
-        eat_tk(p, .Right_Cur) or_return
-        expr = AST.union_constructor_make(ident, e1)
-        return expr, true
-    }
+    // if got_tk && eat_tk(p, .Left_Cur) {
+    //     e1 := parse_AE(p) or_return
+    //     eat_tk(p, .Right_Cur) or_return
+    //     expr = AST.union_constructor_make(ident, e1)
+    //     return expr, true
+    // }
 
     return expr, true
 }
 
-parse_params :: proc(p: ^Parser) -> (params: [dynamic]^AST.Expr, ok: bool) {
-    params = make([dynamic]^AST.Expr)
+parse_params :: proc(p: ^Parser) -> (params: AST.Exprs, ok: bool) {
+    params = make(AST.Exprs)
     if at_tk(p, .Right_Par) { return params, true }
 
     expr := parse_AE(p) or_return
@@ -668,7 +685,7 @@ parse_value :: proc(p: ^Parser) -> (expr: ^AST.Expr, ok: bool) {
             payload = tk.payload.(int)
         case .Float:
             type = .Float
-            payload = tk.payload.(f64)
+            payload = tk.payload.(f32)
         case .Left_Par:
             p.tk_advanced += 1
             tk = get_tk(p) or_return

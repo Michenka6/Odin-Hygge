@@ -1,60 +1,17 @@
-// An optional integer value.
+true and true
 
-type OptionalInt = union {
 
-    Some: int;
 
-    None: unit
 
+
+let x: int = 1; // Variable declaration
+type MyInt = int; // Type declaration
+let y: MyInt = {
+    println("Initialising y");
+    2: int // Type ascription
 };
-
-
-fun displayOption(o: OptionalInt): unit =
-
-    match o with {
-
-        Some{x} -> println(x);
-
-        None{_} -> println("None")
-
-    };
-
-
-displayOption(Some{42});
-
-displayOption(None{()});
-
-
-// A shape type.
-
-type Shape = union {
-
-    Circle: struct { radius: float };
-
-    Rectangle: struct { width: float; height: float };
-
-    Square: struct { side: float }
-
-};
-
-
-// Return the area of a shape.
-
-fun area(s: Shape): float =
-
-    match s with {
-
-        Circle{c} -> c.radius * c.radius * 3.14f;
-
-        Rectangle{r} -> r.width * r.height;
-
-        Square{s} -> s.side * s.side
-
-    };
-
-
-assert(area(Circle{struct {radius = 2.0f}}) = 12.56f);
-
-assert(area(Rectangle{struct {width = 2.0f; height = 3.0f}}) = 6.0f);
-
-assert(area(Square{struct {side = 5.0f}}) = 25.0f)
+if x < y then println("x is smaller than y")
+         else println("x is not smaller than y");
+print("The result of x + y is: ");
+println(x + y);
+assert(x + y < 42) // Assertion

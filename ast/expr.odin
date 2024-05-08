@@ -10,7 +10,7 @@ Single :: struct {
 }
 
 Fun_Sign :: struct {
-    params: [dynamic]^Pretype,
+    params: Pretypes,
     res:   ^Pretype,
 }
 
@@ -34,6 +34,8 @@ Pretype :: union {
     Union_Type,
 }
 
+Pretypes :: distinct [dynamic]^Pretype
+
 T_Kind :: enum {
     Int,
     Bool,
@@ -50,9 +52,11 @@ T :: struct {
     x:       string,
     kind:    T_Kind,
     mapping: map[string]^T,
-    params:  [dynamic]^T,
+    params:  Ts,
     res:    ^T,
 }
+
+Ts :: distinct [dynamic]^T
 
 Type_Env :: struct {
     vars:       map[string]^T,
@@ -61,7 +65,7 @@ Type_Env :: struct {
 }
 
 Expr :: struct {
-    type:      T,
+    type:     ^T,
     variance: ^Expr_Variance,
 }
 
@@ -70,8 +74,8 @@ Expr_Variance :: union {
     Type_Ascription,
     Fun_Decl,
     Fun_App,
-    Match_Case,
-    Union_Constructor,
+    // Match_Case,
+    // Union_Constructor,
     Struct,
     While,
     Type_Decl,
@@ -87,6 +91,8 @@ Expr_Variance :: union {
     Scope,
 }
 
+Exprs :: distinct [dynamic]^Expr
+
 Type_Ascription :: struct {
     e1: ^Expr,
     pt: ^Pretype,
@@ -99,23 +105,23 @@ Fun_Decl :: struct {
 
 Fun_App :: struct {
     fun:      string,
-    params:   [dynamic]^Expr,
+    params:   Exprs,
 }
 
-Match_Pattern :: struct {
-    label: string,
-    var:   string,
-}
+// Match_Pattern :: struct {
+//     label: string,
+//     var:   string,
+// }
 
-Match_Case :: struct {
-    e1:      ^Expr,
-    patterns: map[Match_Pattern]^Expr,
-}
+// Match_Case :: struct {
+//     e1:      ^Expr,
+//     patterns: map[Match_Pattern]^Expr,
+// }
 
-Union_Constructor :: struct {
-    label: string,
-    e1:   ^Expr,
-}
+// Union_Constructor :: struct {
+//     label: string,
+//     e1:   ^Expr,
+// }
 
 Struct :: struct {
     fields: map[string]^Expr,
@@ -158,10 +164,9 @@ Assignment :: struct {
 
 Unary_Op :: enum {
     U_Minus,
-    Sqrt,
+    // Sqrt,
     Not,
     Print,
-    Println,
     Assert,
     Read_Int,
     Read_Float,
@@ -188,8 +193,6 @@ Binary_Op :: enum {
     Times,
     Plus,
     Minus,
-    Max,
-    Min,
 }
 
 Binary_Fun :: struct {
@@ -217,7 +220,7 @@ Value_Type :: enum {
 
 Value_Payload :: union {
     int,
-    f64,
+    f32,
     bool,
     string,
 }

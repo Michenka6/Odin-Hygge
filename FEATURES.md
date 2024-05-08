@@ -69,9 +69,9 @@
 - [ ] Implement Copy Propogation and/or Common Subexpressions Elimination
 
 # HARD
-- [ ] Recursive Functions
+- [x] Recursive Functions
 ***
-- [ ] Improved implementation of the RISC-V Calling Convention: pass more that 8 arguments through the stack
+- [x] Improved implementation of the RISC-V Calling Convention: pass more that 8 arguments through the stack
 ***
 - [ ] Arrays with Slicing and For-Each
 ***

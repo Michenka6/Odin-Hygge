@@ -139,7 +139,7 @@ parse_union_type :: proc(p: ^Parser) -> (pt: ^AST.Pretype, ok: bool) {
     return pt, true
 }
 
-parse_types :: proc(p: ^Parser, params: ^[dynamic]^AST.Pretype) -> (ok: bool) {
+parse_types :: proc(p: ^Parser, params: ^AST.Pretypes) -> (ok: bool) {
     tk, got_tk := get_tk(p)
     if !got_tk { return }
 
@@ -161,7 +161,7 @@ parse_fun_sign :: proc(p: ^Parser) -> (pt: ^AST.Pretype, ok: bool) {
     if tk.kind != .Left_Par { return }
     p.tk_advanced += 1
 
-    params := make([dynamic]^AST.Pretype)
+    params := make(AST.Pretypes)
     parse_types(p, &params) or_return
 
     tk = get_tk(p) or_return

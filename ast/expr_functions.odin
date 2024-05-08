@@ -8,7 +8,7 @@ single_make :: proc(s: string) -> (pt: ^Pretype) {
     return
 }
 
-fun_sign_make :: proc(params: [dynamic]^Pretype, res: ^Pretype) -> (pt: ^Pretype) {
+fun_sign_make :: proc(params: Pretypes, res: ^Pretype) -> (pt: ^Pretype) {
     pt = new(Pretype)
     pt^ = Fun_Sign { params, res }
     return
@@ -50,23 +50,23 @@ fun_decl_make :: proc(params: map[string]^Pretype, e1: ^Expr) -> (expr: ^Expr) {
     return
 }
 
-fun_app_make :: proc(fun: string, params: [dynamic]^Expr) -> (expr: ^Expr) {
+fun_app_make :: proc(fun: string, params: Exprs) -> (expr: ^Expr) {
     expr  = expr_make()
     expr.variance^ = Fun_App { fun, params }
     return
 }
 
-match_cases_make :: proc(e1: ^Expr, patterns: map[Match_Pattern]^Expr) -> (expr: ^Expr) {
-    expr  = expr_make()
-    expr.variance^ = Match_Case { e1, patterns }
-    return
-}
-
-union_constructor_make :: proc(label: string, e1: ^Expr) -> (expr: ^Expr) {
-    expr  = expr_make()
-    expr.variance^ = Union_Constructor { label, e1 }
-    return
-}
+// match_cases_make :: proc(e1: ^Expr, patterns: map[Match_Pattern]^Expr) -> (expr: ^Expr) {
+//     expr  = expr_make()
+//     expr.variance^ = Match_Case { e1, patterns }
+//     return
+// }
+//
+// union_constructor_make :: proc(label: string, e1: ^Expr) -> (expr: ^Expr) {
+//     expr  = expr_make()
+//     expr.variance^ = Union_Constructor { label, e1 }
+//     return
+// }
 
 struct_make :: proc(fields: map[string]^Expr) -> (expr: ^Expr) {
     expr  = expr_make()
@@ -164,8 +164,8 @@ expr_subst :: proc(var: string, new_expr: ^Expr, expr: ^Expr) {
 	case Fun_App:
 	    // if e.fun == var { e.fun = var }
 	    for p in e.params { expr_subst(var, new_expr, p) }
-	case Match_Case:
-	case Union_Constructor:
+	// case Match_Case:
+	// case Union_Constructor:
 	case Struct:
 	    for _,v in e.fields { expr_subst(var, new_expr, v) }
 	case While:
@@ -271,7 +271,7 @@ pretype_clone :: proc(pt: ^Pretype) -> (new_pt: ^Pretype) {
 	case Single:
 	    new_pt^ = Single { p.t }
         case Fun_Sign:
-	    params := make([dynamic]^Pretype)
+	    params := make(Pretypes)
 	    for param in p.params { append_elem(&params, pretype_clone(param)) }
 	    res := pretype_clone(p.res)
 	    new_pt^ = Fun_Sign { params, res }
@@ -313,17 +313,17 @@ expr_clone :: proc(expr: ^Expr) -> (new_expr: ^Expr) {
 	    e1 := expr_clone(e.e1)
 	    new_expr = fun_decl_make(params, e1)
 	case Fun_App:
-	    params := make([dynamic]^Expr)
+	    params := make(Exprs)
 	    for param in e.params { append_elem(&params, expr_clone(param)) }
 	    new_expr = fun_app_make(e.fun, params)
-	case Match_Case:
-	    e1 := expr_clone(e.e1)
-	    patterns := make(map[Match_Pattern]^Expr)
-	    for k,v in e.patterns { patterns[k] = expr_clone(v) }
-	    new_expr = match_cases_make(e1, patterns)
-	case Union_Constructor:
-	    e1 := expr_clone(e.e1)
-	    new_expr = union_constructor_make(e.label, e1)
+	// case Match_Case:
+	//     e1 := expr_clone(e.e1)
+	//     patterns := make(map[Match_Pattern]^Expr)
+	//     for k,v in e.patterns { patterns[k] = expr_clone(v) }
+	//     new_expr = match_cases_make(e1, patterns)
+	// case Union_Constructor:
+	//     e1 := expr_clone(e.e1)
+	//     new_expr = union_constructor_make(e.label, e1)
 	case Struct:
 	    fields := make(map[string]^Expr)
 	    for k,v in e.fields { fields[k] = expr_clone(v) }
@@ -364,4 +364,86 @@ expr_clone :: proc(expr: ^Expr) -> (new_expr: ^Expr) {
 	    new_expr = scope_make(e.e1)
     }
     return
+}
+
+expr_ident_subst :: proc(x: string, y: string, expr: ^Expr, fun_name: string = "") {
+    switch e in expr.variance {
+        case Sequence:
+	    expr_ident_subst(x, y, e.e1)
+	    expr_ident_subst(x, y, e.e2)
+        case Type_Ascription:
+	    expr_ident_subst(x, y, e.e1)
+        case Fun_Decl:
+	    for k,v in e.params {
+		pretype_ident_subst(x, y, v)
+		// delete_key(&e.params, k)
+		// e.params[fmt.aprintf("%s%s", fun_name, k)] = v
+	    }
+	    expr_ident_subst(x, y, e.e1)
+        case Fun_App:
+	    if x == e.fun { e.fun = y }
+	    for param in e.params {
+		expr_ident_subst(x, y, param)
+	    }
+  //       case Match_Case:
+	 //    expr_ident_subst(x, y, e.e1)
+	 //    for k,v in e.patterns {
+		// expr_ident_subst(x, y, v)
+	 //    }
+  //       case Union_Constructor:
+	 //    if x == e.label { e.label = y }
+	 //    expr_ident_subst(x, y, e.e1)
+        case Struct:
+	    for k,v in e.fields {
+		expr_ident_subst(x, y, v)
+	    }
+        case While:
+	    expr_ident_subst(x, y, e.e1)
+	    expr_ident_subst(x, y, e.e2)
+        case Type_Decl:
+	    expr_ident_subst(x, y, e.e1)
+        case Let:
+	    if x == e.x { return }
+	    expr_ident_subst(x, y, e.e1)
+	    expr_ident_subst(x, y, e.e2)
+        case If_Else:
+	    expr_ident_subst(x, y, e.e1)
+	    expr_ident_subst(x, y, e.e2)
+	    expr_ident_subst(x, y, e.e3)
+        case Assignment:
+	    expr_ident_subst(x, y, e.e1)
+	    expr_ident_subst(x, y, e.e2)
+        case Unary_Fun:
+	    expr_ident_subst(x, y, e.e1)
+        case Binary_Fun:
+	    expr_ident_subst(x, y, e.e1)
+	    expr_ident_subst(x, y, e.e2)
+        case Variable:
+	    if e.x == x { e.x = y }
+        case Field_Access:
+	    expr_ident_subst(x, y, e.e1)
+        case Value:
+        case Parens:
+	    expr_ident_subst(x, y, e.e1)
+        case Scope:
+	    expr_ident_subst(x, y, e.e1)
+    }
+}
+
+pretype_ident_subst :: proc(x: string, y: string, pt: ^Pretype) {
+    switch p in pt {
+        case Single:
+	    if p.t == x { p.t = y }
+        case Fun_Sign:
+	    for param in p.params { pretype_ident_subst(x, y, param) }
+	    pretype_ident_subst(x, y, p.res)
+        case Struct_Type:
+	    for k,v in p.fields {
+		pretype_ident_subst(x, y, v.pt)
+	    }
+        case Union_Type:
+	    for k,v in p.labels {
+		pretype_ident_subst(x, y, v)
+	    }
+    }
 }

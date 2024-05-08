@@ -17,7 +17,7 @@ Position :: ast.Position
 
 Payload :: union {
     int,
-    f64,
+    f32,
     string,
     bool,
 }
@@ -358,8 +358,8 @@ peek :: proc(using l: ^Lexer) -> (u8, bool) {
     return 0x69, false
 }
 
-float_from_two_ints := proc(whole: int, fractional: int) -> f64 {
-    fractional_part := f64(fractional) / math.pow(10.0, f64(len(fmt.aprintf("%d", fractional))));
+float_from_two_ints := proc(whole: int, fractional: int) -> f32 {
+    fractional_part := f32(fractional) / math.pow(10.0, f32(len(fmt.aprintf("%d", fractional))));
 
-    return f64(whole) + fractional_part;
+    return f32(whole) + fractional_part;
 }

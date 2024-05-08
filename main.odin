@@ -26,27 +26,44 @@ main :: proc() {
     data, ok := os.read_entire_file(file_path)
     if !ok { fmt.eprintf("ERROR: Couldn't read file - %s\n", file_path); return }
 
-    fmt.println("Source: ")
-    fmt.println(string(data))
+    // fmt.println("Source: ")
+    // fmt.println(string(data))
 
     var, owk := Parser.parse_src(data)
-    // if false {
     if owk {
-    // if Parser.parse_H(p, &fields) {
         fmt.println()
         fmt.println("AST: ")
-        // fmt.println(fields)
         fmt.println(AST.expr_to_string(var, ""))
-    //
-    //     // fmt.println("----------")
-    //     // env := Typechecker.type_env_make()
-    //     // t, t_ok := Typechecker.type_checking_judgement(env, var)
-    //     // fmt.printf("Typechecker - %v\n", t_ok)
-    //     // fmt.printf("Typechecked to %v\n", t)
-    //
-    //     // AST.propogate_pretype_subst("", nil, var)
-    //     // fmt.println(AST.expr_to_string(var, ""))
-    //     // AST.expr_subst("x", expr, var) 
-    //     // fmt.println(AST.expr_to_string(var, ""))
+    } else { 
+        fmt.println("Failed to parse")
+        return
+    }
+
+    fmt.println("-----------------")
+    fmt.println("#################")
+    fmt.println("-----------------")
+
+    // fmt.println("Typechecking")
+    type_env := Typechecker.type_env_make()
+
+    if Typechecker.type_checking_judgement(type_env, var) {
+        fmt.println("TYPECHECKED")
+        fmt.println(var.type)
+    } else {
+        fmt.println("DID NOT TYPECHECK")
+    }
+
+    fmt.println("-----------------")
+    fmt.println("#################")
+    fmt.println("-----------------")
+    fmt.println("-----------------")
+    fmt.println()
+
+    program := AST.program_make()
+    got_ir := AST.expr_to_ir_command(var, program, "t1")
+    if got_ir {
+        fmt.println(AST.program_to_string(program))
+    } else {
+        fmt.println("Failed to convert into IR")
     }
 }
