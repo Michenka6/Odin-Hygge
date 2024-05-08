@@ -2,7 +2,7 @@
 
 - [x] $e_{1} / e_{2}$     arithmetic operation
 - [x] $e_{1}\ \%\ e_{2}$     arithmetic operation
-- [x] $sqrt(e)$     arithmetic operation
+- [ ] $sqrt(e)$     arithmetic operation
 - [x] $max(e_{1},\ e_{2})$ arithmetic operation
 - [x] $min(e_{1},\ e_{2})$ arithmetic operation
 ***
@@ -71,7 +71,7 @@
 # HARD
 - [x] Recursive Functions
 ***
-- [x] Improved implementation of the RISC-V Calling Convention: pass more that 8 arguments through the stack
+- [ ] Improved implementation of the RISC-V Calling Convention: pass more that 8 arguments through the stack
 ***
 - [ ] Arrays with Slicing and For-Each
 ***

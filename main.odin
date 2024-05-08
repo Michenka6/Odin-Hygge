@@ -6,9 +6,6 @@ import AST "./ast"
 import Lexer "./lexer"
 import Parser "./parser"
 import Typechecker "./typechecker"
-import Simplifier "./semantic_simplifier"
-import Interpreter "./interpreter"
-import Code_Generator "./code_generator"
 
 
 /*
@@ -26,8 +23,8 @@ main :: proc() {
     data, ok := os.read_entire_file(file_path)
     if !ok { fmt.eprintf("ERROR: Couldn't read file - %s\n", file_path); return }
 
-    // fmt.println("Source: ")
-    // fmt.println(string(data))
+    fmt.println("Source: ")
+    fmt.println(string(data))
 
     var, owk := Parser.parse_src(data)
     if owk {
@@ -48,7 +45,7 @@ main :: proc() {
 
     if Typechecker.type_checking_judgement(type_env, var) {
         fmt.println("TYPECHECKED")
-        fmt.println(var.type)
+        // fmt.println(var.type)
     } else {
         fmt.println("DID NOT TYPECHECK")
     }
@@ -56,8 +53,8 @@ main :: proc() {
     fmt.println("-----------------")
     fmt.println("#################")
     fmt.println("-----------------")
-    fmt.println("-----------------")
-    fmt.println()
+
+    fmt.println("RISC-V Assembly")
 
     program := AST.program_make()
     got_ir := AST.expr_to_ir_command(var, program, "t1")

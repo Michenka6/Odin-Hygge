@@ -4,19 +4,6 @@
 
 ***S204743 - Amirkhon Alimov***
 
-# Contents
-
-
-- [AST](#ast)
-    - [High-level idea](#high-level-idea)
-    - [Odin implementation](#odin-implementation)
-- [Lexing/Parsing](#lexing/parsing)
-    - [Lexing](#lexing)
-    - [Parsing](#parsing)
-- [Typechecking](#typechecking)
-- [Intermideate Representation](#intermideate-representation)
-- [Code Generation](#code-generation)
-
 # AST
 
 ## High-level idea
@@ -131,65 +118,97 @@ It uses the following Context-Free Grammar, where `ME` is the first rule to matc
         |   ( IDENT ":" PRETYPE ( "," L )* )?
 ```
 
-
-
-
-
+This grammar allows to handle complex patterns and operations.
 
 # Typechecking
 
+Similarily to the provided hyggec compiler a typechecking system was developed that took into account primitive and composite types.
+Certain operations like addition or printing or assertation are defined only on a part of the domain of internal types.
 
-
-
-
-
-
+Type resolution for following features is:
 
 - [x] $e_{1} / e_{2}$     arithmetic operation
 - [x] $e_{1}\ \%\ e_{2}$     arithmetic operation
-- [x] $sqrt(e)$     arithmetic operation
 - [x] $max(e_{1},\ e_{2})$ arithmetic operation
 - [x] $min(e_{1},\ e_{2})$ arithmetic operation
+
+All the operations above should resolve in either an integer or a float, where each argument is of that type.
 ***
 - [x] $e_{1} <= e_{2}$ relational operation
 - [x] $e_{1} > e_{2}$  relational operation
 - [x] $e_{1} >= e_{2}$ relational operation
-***
 - [x] $e_{1}\ xor\ e_{2}$ relational operation
-***
-- [ ] $++x$ C-style post-increments
-- [ ] $x++$ C-style pre-increments
-- [ ] $x--$ C-style post-decrement
-- [ ] $--x$ C-style pre-decrements
+
+All the operations above should resolve in either a bool, where each argument is of that type.
 ***
 - [x] $x\ +=\ e$ C-style add-assign
 - [x] $x\ -=\ e$ C-style minus-assign
 - [x] $x\ *=\ e$ C-style times-assign
 - [x] $x\ /=\ e$ C-style divide-assign
+
+The computation assignment operations are desugared into a regular assignment and the operation itself, where the e has to resolve int o the same type as the variable x, as such:
+$$
+    x\ +=\ e
+$$
+$$
+    x\ \leftarrow\ x\ +\ e
+$$
 ***
 - [x] "Do..While" Loop
+
+Do While loops are desugared into one iteration of the do block, and then a regular while loop is added sequentially.
+Similarily to the While loop, the condition has to resolve into a boolean.
 ***
 - [x] "For" Loop
+
+For loop is also just a desugared version of the while loop, where initialization is followed by the while loop of the condition and the body of sequence of the for loop body and for loop step.
+***
 - [x] $e_{1}\ sand\ e_{2}$ short-circuit and
 - [x] $e_{1}\ sor\ e_{2}$  short-circuit or
 
+Short-cirtuting sand and sor are desugared into if-else blocks according to boolean logic, both parameters should resolve into booleans.
+
 - [x] Mutable vs Immutable struct fields
-- [x] Recursive Functions
+A trace immutable fields was kept and upon field access they are checked off against it. Immutable fields cannot be assigned to.
 ***
-- [x] Improved implementation of the RISC-V Calling Convention: pass more that 8 arguments through the stack
+- [x] Recursive Functions
+All function calls compile down to jumping to a label, so recursivity is a given.
+***
 
 # Intermideate Representation
+The intermideate representation is just a structure that can be easily tailored for different target assemblies. Since Hygge is experession-based language it has to be transformed into a statement-based representation which would be run as assembly.
 
+The project does not fully implement the full hygge complitation for all expressions, but the following reasoning of how that would be achieved is presented:
 
+### Value/Variable
+Whenever, a literal value is presented, it would be allocated in the `.data` section and all following instances of it are to be used as addresses to the memory segment. Meaning a number `42` would be stored under the label of `i_42` and instead of `li` instruction `lw` is used. This approach was chosen over the implementation in hyggec, because it allowed universal referal to values in registers, meaning it was not necessary to distinguish between integer/float literals and respective variables.
 
+Variables are just type dependant loads, either of addresses or words.
 
+#### Working with floats
+As far as I researched, there is no way to simply instantiate floats in memory, so the same approach as hyggec of using the transmute of the float as u32 and then using risc-v instructions to move it to a float register.
 
+### In-built functions
+For the inbuilt functions simple tailoring is to be made. For example, a `not e` is just `e` transforming into IR block followed by xor the value by itself. Similar approaches would be done for addition and so on.
 
+Min, Max are implemented by desugaring them into an if-else, so it is evaluated through the if method below.
 
+### If-Else
+Similarily, in if-else blocks, the condition is evaluated first, then its result is compared to 0, if it is 0 it jumps to a corresponding label for the false path, otherwise nothing happens and the true path is evaluated immediately.
 
+### Let declaration
+Each let declaration is presaved in memory zeroed out, then the block that evaluates it is transformed into IR and the result is stored in memory.
 
+### Assignment
+Assignment is evaluated by extracting the expression into a variable, which computed just like a declaration. Then the contents of the variable is moved to the variable being assigned to.
 
+### Functions
+Functions are exracted into their separate label, whilst storing the instruction pointer when they are called, the parameters are either passed by registers or via stack.
 
+### Structs
+Structs in a simple implementation are not really structs, they could be broken down recursively into multiple variable declarations. Since, memory cache efficiancy is not paramount, then separating fields out into separate variables is not terrible.
 
+If that approach is not appropriate, then structs would be passed via stack.
 
-# Code Generation
+### Loops
+Loops are implemented just like functions, where the loop body is the function body and no new parameters are added.
